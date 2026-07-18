@@ -1,0 +1,35 @@
+{$APP_DOMAIN} {
+	route {
+		@machine {
+			path /api/mediamtx/auth /api/hooks/*
+			remote_ip {$RELAY_PUBLIC_IP}
+		}
+		handle @machine {
+			reverse_proxy 127.0.0.1:3000
+		}
+
+		@blocked_machine path /api/mediamtx/auth /api/hooks/*
+		handle @blocked_machine {
+			respond 403
+		}
+
+		handle /api/auth/* {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /trpc/* {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /api/chat/live {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /api/obs/control {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /api/webhooks/kick {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle {
+			reverse_proxy 127.0.0.1:3001
+		}
+	}
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=VISP portal
+After=network-online.target visp-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=visp
+Group=visp
+WorkingDirectory=/opt/visp/apps/web
+EnvironmentFile=/etc/visp/web.env
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+ExecStart=/usr/local/bin/bun run .output/server/index.mjs
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

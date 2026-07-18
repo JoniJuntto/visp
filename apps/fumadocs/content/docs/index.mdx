@@ -1,0 +1,43 @@
+---
+title: VISP Relay
+description: How the two-box SRT and RTMP relay works.
+icon: Radio
+---
+
+VISP is a small self-service media relay for trusted Twitch streamers. It moves
+an H.264/AAC feed between a remote encoder and OBS without transcoding it.
+
+## Architecture
+
+| Box | Responsibilities |
+| --- | --- |
+| Relay | MediaMTX accepts SRT on UDP 8890 and RTMP on TCP 1935. Caddy serves the HTTPS RTT probe. |
+| App | Twitch login, path and credential management, PostgreSQL state, the portal, and MediaMTX authentication. |
+
+Both boxes communicate over Tailscale for administration and reconciliation.
+Media traffic uses the relay's public SRT or RTMP ports.
+
+## Start here
+
+- [Broadcaster setup](/docs/broadcaster-setup) covers credential generation,
+  encoders, RTT guidance, OBS import, and Advanced Scene Switcher.
+- [Deployment and operations](/docs/deployment) covers host provisioning,
+  MediaMTX bootstrap, firewalls, rollout, restarts, and acceptance testing.
+
+## Security model
+
+Users authenticate with Twitch or Kick. VISP never asks for a provider stream
+key. Each path has an independently revocable publish credential, encrypted for
+authenticated re-reveal and stored with an Argon2id hash for relay
+authentication. Read credentials remain account-wide. A path always belongs to
+one user, and MediaMTX asks the app for permission before every new publish or
+read connection.
+
+The app intentionally sits on the connection-establishment path. If it is down,
+active streams survive but new connections fail authentication.
+
+## v1 boundaries
+
+VISP does not transcode, enforce quotas, bill users, host OBS, or run a custom
+scheduler. MediaMTX accepts one publisher per path: the first wins and a second
+publisher is rejected until the first disconnects.

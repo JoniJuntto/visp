@@ -1,0 +1,36 @@
+# Temporary bootstrap configuration. Replace this authentication block with the
+# HTTP authentication block from mediamtx.yml after a real SRT publish/read test.
+authMethod: internal
+authInternalUsers:
+  - user: bootstrap-publisher
+    pass: REPLACE_BOOTSTRAP_PUBLISH_PASSWORD
+    permissions:
+      - action: publish
+        path: bootstrap
+  - user: bootstrap-reader
+    pass: REPLACE_BOOTSTRAP_READ_PASSWORD
+    permissions:
+      - action: read
+        path: bootstrap
+  - user: any
+    pass:
+    ips: [127.0.0.1, ::1, 100.64.0.0/10]
+    permissions:
+      - action: api
+
+api: true
+apiAddress: 100.64.0.10:9997
+metrics: false
+pprof: false
+rtsp: false
+hls: false
+webrtc: false
+moq: false
+rtmp: true
+rtmpAddress: :1935
+srt: true
+srtAddress: :8890
+paths:
+  all_others:
+    source: publisher
+    overridePublisher: false

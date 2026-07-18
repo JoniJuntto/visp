@@ -1,0 +1,52 @@
+logLevel: info
+
+authMethod: http
+# Override in production with MTX_AUTHHTTPADDRESS.
+authHTTPAddress: https://app.example.com/api/mediamtx/auth
+authHTTPExclude:
+  - action: api
+
+api: true
+# Override in production with MTX_APIADDRESS set to the relay's Tailscale IP.
+apiAddress: 100.64.0.10:9997
+metrics: false
+pprof: false
+
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: 127.0.0.1:8554
+hls: false
+webrtc: false
+moq: false
+
+rtmp: true
+rtmpAddress: :1935
+srt: true
+srtAddress: :8890
+
+paths:
+  all_others:
+    source: publisher
+    overridePublisher: false
+    runOnReady: >-
+      /usr/local/libexec/visp-snapshot
+      "$APP_ORIGIN" "$MTX_PATH" "$MTX_SOURCE_TYPE"
+    runOnReadyRestart: yes
+    runOnNotReady: >-
+      curl --fail --silent --show-error --max-time 2 --request POST
+      --header "Content-Type: application/json"
+      --header "X-Hook-Secret: $HOOK_SECRET"
+      --data "{\"path\":\"$MTX_PATH\"}"
+      "$APP_ORIGIN/api/hooks/not-ready"
+    runOnRead: >-
+      curl --fail --silent --show-error --max-time 2 --request POST
+      --header "Content-Type: application/json"
+      --header "X-Hook-Secret: $HOOK_SECRET"
+      --data "{\"path\":\"$MTX_PATH\",\"readerId\":\"$MTX_READER_ID\"}"
+      "$APP_ORIGIN/api/hooks/read"
+    runOnUnread: >-
+      curl --fail --silent --show-error --max-time 2 --request POST
+      --header "Content-Type: application/json"
+      --header "X-Hook-Secret: $HOOK_SECRET"
+      --data "{\"path\":\"$MTX_PATH\",\"readerId\":\"$MTX_READER_ID\"}"
+      "$APP_ORIGIN/api/hooks/unread"

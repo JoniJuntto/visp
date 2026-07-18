@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -u
+
+app_url="${1%/}"
+path="$2"
+source_type="${3:-}"
+snapshot_file="$(mktemp --suffix=.jpg)"
+trap 'rm -f "$snapshot_file"; exit 0' INT TERM EXIT
+
+curl --fail --silent --show-error --max-time 2 --request POST \
+	--header "Content-Type: application/json" \
+	--header "X-Hook-Secret: $HOOK_SECRET" \
+	--data "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" \
+	"$app_url/api/hooks/ready" || true
+
+while true; do
+	if timeout 20s ffmpeg -nostdin -hide_banner -loglevel error \
+		-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" \
+		-vf "scale=640:-2" -frames:v 1 -q:v 5 -y "$snapshot_file" && \
+		test -s "$snapshot_file"; then
+		upload_url="$(
+			curl --fail --silent --show-error --max-time 2 --request POST \
+				--header "X-Hook-Secret: $HOOK_SECRET" \
+				"$app_url/api/hooks/snapshot-upload/$path"
+		)" || upload_url=""
+		if test -n "$upload_url"; then
+			curl --fail --silent --show-error --max-time 20 --request PUT \
+				--header "Content-Type: image/jpeg" \
+				--upload-file "$snapshot_file" \
+				"$upload_url" || true
+		fi
+	fi
+	sleep 60
+done

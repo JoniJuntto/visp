@@ -1,0 +1,18 @@
+[Unit]
+Description=VISP API
+After=network-online.target postgresql.service tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=visp
+Group=visp
+WorkingDirectory=/opt/visp/apps/server
+EnvironmentFile=/etc/visp/app.env
+ExecStart=/usr/local/bin/bun run dist/index.mjs
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

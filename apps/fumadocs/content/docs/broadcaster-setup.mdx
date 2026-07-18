@@ -1,0 +1,61 @@
+---
+title: Broadcaster setup
+description: Generate credentials, configure an encoder, and import the OBS collection.
+icon: Video
+---
+
+## Generate credentials
+
+1. Sign in to the portal with Twitch.
+2. Open **Publishing devices** and create a device.
+3. Copy that device's publish URL into the sending encoder.
+4. Download the OBS scene collection while the read secret is still visible.
+
+Publish URLs stay hidden until you choose **Reveal URL**. Each device has an
+independent credential, so rotating or revoking one does not interrupt the
+others. OBS read credentials are still rotated separately.
+
+## Configure the encoder
+
+Use SRT by default and RTMP only when the network blocks UDP. Configure H.264
+video, AAC audio, constant bitrate, and a two-second keyframe interval. Enable
+adaptive bitrate in Larix on cellular connections.
+
+Only one publisher can own a path. The first device remains connected; a second
+device cannot pre-connect for a seamless handoff.
+
+## Tune SRT latency
+
+Run the dashboard probe on the same network the encoder will use. It sends seven
+sequential requests to the relay and uses the median RTT. Select the real network
+profile and keep the rounded recommendation:
+
+| Profile | Multiplier | Minimum |
+| --- | ---: | ---: |
+| Wired | 3× RTT | 120 ms |
+| Wi-Fi | 4× RTT | 300 ms |
+| Cellular | 6× RTT | 600 ms |
+
+Cellular jitter is bursty; do not tune below the recommendation.
+
+## Import into OBS
+
+In OBS, choose **Scene Collection → Import** and select the downloaded JSON. It
+contains a fallback scene and one Media Source scene per active relay path. The
+sources use `ffmpeg_source`, MPEG-TS, low buffering, and automatic reconnects.
+
+Creating a path later requires rotating the read secret and downloading a fresh
+collection. VISP cannot recreate the old file because it never stores plaintext.
+
+## Advanced Scene Switcher
+
+Create a **Media** condition for each generated Media Source. A Source condition
+checks scene visibility and can deadlock the switch; Media checks playback state.
+
+For every macro:
+
+1. Enable both the condition and action toggles.
+2. Require **Playing** for 2 seconds before switching to the live scene.
+3. Require **Stopped** for 3 seconds before switching to **Fallback**.
+
+The debounce prevents scene flapping while SRT reconnects.

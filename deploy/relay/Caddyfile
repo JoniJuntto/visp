@@ -1,0 +1,9 @@
+{$RELAY_DOMAIN} {
+	@ping path /ping
+	header @ping Access-Control-Allow-Origin "https://{$APP_DOMAIN}"
+	header @ping Access-Control-Allow-Methods "GET, OPTIONS"
+	header @ping Cache-Control "no-store"
+	respond @ping 204
+
+	respond 404
+}

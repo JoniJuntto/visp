@@ -1,0 +1,109 @@
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@import "@VISP/ui/globals.css";
+
+/*
+ * VISP visual identity: "signal chain, not SaaS".
+ * Lifted cool charcoal, bone primary, color reserved for signal state
+ * (tally red = live, amber = unknown, green = configured), SMPTE bars
+ * as the brand mark, rack-label condensed caps for display type.
+ */
+
+:root {
+	--background: oklch(0.965 0.004 250);
+	--foreground: oklch(0.2 0.01 255);
+	--card: oklch(0.99 0.002 250);
+	--card-foreground: oklch(0.2 0.01 255);
+	--popover: oklch(0.99 0.002 250);
+	--popover-foreground: oklch(0.2 0.01 255);
+	--primary: oklch(0.24 0.012 255);
+	--primary-foreground: oklch(0.97 0.003 250);
+	--secondary: oklch(0.93 0.006 250);
+	--secondary-foreground: oklch(0.24 0.012 255);
+	--muted: oklch(0.93 0.006 250);
+	--muted-foreground: oklch(0.48 0.014 255);
+	--accent: oklch(0.91 0.01 230);
+	--accent-foreground: oklch(0.24 0.012 255);
+	--destructive: oklch(0.56 0.21 27);
+	--border: oklch(0.87 0.008 250);
+	--input: oklch(0.87 0.008 250);
+	--ring: oklch(0.6 0.11 210);
+	--radius: 0.25rem;
+}
+
+.dark {
+	--background: oklch(0.17 0.011 255);
+	--foreground: oklch(0.95 0.004 250);
+	--card: oklch(0.21 0.012 255);
+	--card-foreground: oklch(0.95 0.004 250);
+	--popover: oklch(0.21 0.012 255);
+	--popover-foreground: oklch(0.95 0.004 250);
+	--primary: oklch(0.92 0.005 250);
+	--primary-foreground: oklch(0.19 0.011 255);
+	--secondary: oklch(0.27 0.013 255);
+	--secondary-foreground: oklch(0.95 0.004 250);
+	--muted: oklch(0.25 0.012 255);
+	--muted-foreground: oklch(0.7 0.014 252);
+	--accent: oklch(0.29 0.02 235);
+	--accent-foreground: oklch(0.95 0.004 250);
+	--destructive: oklch(0.63 0.21 27);
+	--border: oklch(1 0 0 / 12%);
+	--input: oklch(1 0 0 / 16%);
+	--ring: oklch(0.72 0.11 210);
+}
+
+@theme inline {
+	--font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+	--font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+	/* Signal-state colors: tally = live, caution = unknown, signal = ok */
+	--color-tally: oklch(0.63 0.21 27);
+	--color-caution: oklch(0.78 0.13 80);
+	--color-signal: oklch(0.72 0.15 155);
+}
+
+/* SMPTE 75% color bars — the brand mark. */
+.smpte-bars {
+	background: linear-gradient(
+		90deg,
+		#c0c0c0 0 14.29%,
+		#c0c000 0 28.57%,
+		#00c0c0 0 42.86%,
+		#00c000 0 57.14%,
+		#c000c0 0 71.43%,
+		#c00000 0 85.71%,
+		#0000c0 0 100%
+	);
+	transform-origin: left;
+	animation: signal-in 0.5s ease-out;
+}
+
+@keyframes signal-in {
+	from {
+		transform: scaleX(0);
+	}
+}
+
+.tally-pulse {
+	animation: tally 1.6s ease-in-out infinite;
+}
+
+@keyframes tally {
+	50% {
+		opacity: 0.35;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.smpte-bars,
+	.tally-pulse {
+		animation: none;
+	}
+}

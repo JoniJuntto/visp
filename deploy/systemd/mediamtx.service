@@ -1,0 +1,16 @@
+[Unit]
+Description=MediaMTX relay
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/visp/relay.env
+ExecStart=/usr/local/bin/mediamtx /etc/mediamtx/mediamtx.yml
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=0
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
