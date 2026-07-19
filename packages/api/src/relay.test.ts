@@ -18,7 +18,11 @@ describe("relay guidance", () => {
 			"cannot be revealed",
 		);
 		expect(() =>
-			decryptPublishSecret(`${encrypted.slice(0, -1)}x`, "user-a", 1),
+			decryptPublishSecret(
+				`${encrypted.slice(0, -1)}${encrypted.endsWith("x") ? "y" : "x"}`,
+				"user-a",
+				1,
+			),
 		).toThrow("cannot be revealed");
 	});
 
