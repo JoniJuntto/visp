@@ -1,53 +1,56 @@
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
+#include <QByteArray>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QString>
+#include <QStringList>
+#include <cmath>
+#include <cstdint>
 
 struct control_response {
 	uint64_t command_version;
 	bool desired_streaming;
+	QString desired_scene;
 };
 
-static const char *json_value(const char *json, const char *key)
+static bool parse_control_response(const QByteArray &json, struct control_response *response)
 {
-	const char *value = strstr(json, key);
-	if (!value)
-		return NULL;
-	value = strchr(value + strlen(key), ':');
-	if (!value)
-		return NULL;
-	do {
-		value++;
-	} while (*value == ' ' || *value == '\t' || *value == '\r' || *value == '\n');
-	return value;
+	QJsonParseError error;
+	const QJsonDocument document = QJsonDocument::fromJson(json, &error);
+	if (error.error != QJsonParseError::NoError || !document.isObject())
+		return false;
+	const QJsonObject object = document.object();
+	const QJsonValue version_value = object.value("commandVersion");
+	const QJsonValue streaming_value = object.value("desiredStreaming");
+	const QJsonValue scene_value = object.value("desiredScene");
+	const double version = version_value.toDouble(-1);
+	if (!version_value.isDouble() || version < 0 || std::floor(version) != version ||
+	    !streaming_value.isBool() || (!scene_value.isNull() && !scene_value.isString()))
+		return false;
+	response->command_version = static_cast<uint64_t>(version);
+	response->desired_streaming = streaming_value.toBool();
+	response->desired_scene = scene_value.isString() ? scene_value.toString() : QString();
+	return true;
 }
 
-static bool parse_control_response(const char *json, struct control_response *response)
+static QByteArray make_control_request(bool streaming, uint64_t applied_version, const QStringList &scene_names,
+				       const QString &current_scene)
 {
-	const char *version_value = json_value(json, "\"commandVersion\"");
-	const char *streaming_value = json_value(json, "\"desiredStreaming\"");
-	char *version_end = NULL;
-	if (!version_value || !streaming_value)
-		return false;
-
-	const uint64_t version = strtoull(version_value, &version_end, 10);
-	if (version_end == version_value)
-		return false;
-	if (strncmp(streaming_value, "true", 4) == 0) {
-		response->desired_streaming = true;
-	} else if (strncmp(streaming_value, "false", 5) == 0) {
-		response->desired_streaming = false;
-	} else {
-		return false;
-	}
-	response->command_version = version;
-	return true;
+	QJsonArray scenes;
+	for (const QString &name : scene_names)
+		scenes.append(name);
+	const QJsonObject payload{
+		{"streaming", streaming},
+		{"appliedVersion", static_cast<qint64>(applied_version)},
+		{"scenes", scenes},
+		{"currentScene", current_scene.isNull() ? QJsonValue(QJsonValue::Null) : QJsonValue(current_scene)},
+	};
+	return QJsonDocument(payload).toJson(QJsonDocument::Compact);
 }
 
 #ifdef VISP_PROTOCOL_TEST
 
-#include <stdio.h>
-#include <assert.h>
+#include <cstdio>
 #undef NDEBUG
 
 /* assert() is compiled out under -DNDEBUG (Release), so use a check that is
@@ -63,12 +66,25 @@ static bool parse_control_response(const char *json, struct control_response *re
 int main(void)
 {
 	struct control_response response = {};
-	CHECK(parse_control_response("{\"commandVersion\":7,\"desiredStreaming\":true,\"pollAfterMs\":2000}",
+	CHECK(parse_control_response("{\"commandVersion\":7,\"desiredStreaming\":true,\"desiredScene\":\"Main \\\"台\\\"\",\"pollAfterMs\":2000}",
 				     &response));
-	CHECK(response.command_version == 7 && response.desired_streaming);
-	CHECK(parse_control_response("{\"desiredStreaming\": false, \"commandVersion\": 8}", &response));
-	CHECK(response.command_version == 8 && !response.desired_streaming);
+	CHECK(response.command_version == 7 && response.desired_streaming &&
+	      response.desired_scene == QString::fromUtf8("Main \"台\""));
+	CHECK(parse_control_response("{\"desiredStreaming\":false,\"desiredScene\":null,\"commandVersion\":8}",
+				     &response));
+	CHECK(response.command_version == 8 && !response.desired_streaming && response.desired_scene.isNull());
 	CHECK(!parse_control_response("{\"commandVersion\":9}", &response));
+	const QJsonObject first_poll = QJsonDocument::fromJson(
+		make_control_request(false, 8, {"Old scene", "Removed scene"}, QString()))
+					       .object();
+	CHECK(first_poll.value("currentScene").isNull());
+	CHECK(first_poll.value("scenes").toArray().size() == 2);
+	const QJsonObject renamed_poll = QJsonDocument::fromJson(
+		make_control_request(true, 9, {QString::fromUtf8("Main \"台\""), "Renamed scene"}, "Renamed scene"))
+					         .object();
+	CHECK(renamed_poll.value("currentScene").toString() == "Renamed scene");
+	CHECK(renamed_poll.value("scenes").toArray().at(0).toString() == QString::fromUtf8("Main \"台\""));
+	CHECK(!renamed_poll.value("scenes").toArray().contains("Removed scene"));
 	return 0;
 }
 
@@ -87,7 +103,6 @@ int main(void)
 #include <QObject>
 #include <QPushButton>
 #include <QSettings>
-#include <QString>
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -233,6 +248,44 @@ private:
 	QLineEdit token;
 };
 
+static QStringList scene_names()
+{
+	QStringList names;
+	struct obs_frontend_source_list scenes = {};
+	obs_frontend_get_scenes(&scenes);
+	for (size_t index = 0; index < scenes.sources.num; index++)
+		names.append(QString::fromUtf8(obs_source_get_name(scenes.sources.array[index])));
+	obs_frontend_source_list_free(&scenes);
+	return names;
+}
+
+static QString current_scene_name()
+{
+	obs_source_t *scene = obs_frontend_get_current_scene();
+	if (!scene)
+		return {};
+	const QString name = QString::fromUtf8(obs_source_get_name(scene));
+	obs_source_release(scene);
+	return name;
+}
+
+static bool set_current_scene(const QString &name)
+{
+	struct obs_frontend_source_list scenes = {};
+	obs_frontend_get_scenes(&scenes);
+	bool found = false;
+	for (size_t index = 0; index < scenes.sources.num; index++) {
+		obs_source_t *scene = scenes.sources.array[index];
+		if (name == QString::fromUtf8(obs_source_get_name(scene))) {
+			obs_frontend_set_current_scene(scene);
+			found = true;
+			break;
+		}
+	}
+	obs_frontend_source_list_free(&scenes);
+	return found;
+}
+
 class VispControl final : public QObject {
 public:
 	VispControl(const plugin_config &settings)
@@ -268,8 +321,7 @@ private:
 		request.setRawHeader("Authorization", authorization);
 		request.setTransferTimeout(5000);
 		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-		const QByteArray body = QByteArray("{\"streaming\":") + (streaming ? "true" : "false") +
-					",\"appliedVersion\":" + QByteArray::number(applied_version) + "}";
+		const QByteArray body = make_control_request(streaming, applied_version, scene_names(), current_scene_name());
 		pending = network.post(request, body);
 		connect(pending, &QNetworkReply::finished, this, [this, reply = pending]() {
 			pending = nullptr;
@@ -290,13 +342,18 @@ private:
 
 		const QByteArray body = reply->readAll();
 		struct control_response response;
-		if (!parse_control_response(body.constData(), &response)) {
+		if (!parse_control_response(body, &response)) {
 			obs_log(LOG_WARNING, "control service returned an invalid response");
 			return;
 		}
 
 		if (response.command_version <= applied_version)
 			return;
+		if (!response.desired_scene.isNull() && !set_current_scene(response.desired_scene)) {
+			obs_log(LOG_WARNING, "requested scene is no longer available: %s",
+				response.desired_scene.toUtf8().constData());
+			return;
+		}
 		const bool active = obs_frontend_streaming_active();
 		if (response.desired_streaming != active) {
 			if (response.desired_streaming)

@@ -14,6 +14,7 @@ import {
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
+	setObsScene,
 	setObsStreaming,
 } from "@VISP/api/obs-control";
 import {
@@ -396,13 +397,24 @@ integration("relay PostgreSQL integration", () => {
 					authorization: `Bearer ${pairing.token}`,
 					"content-type": "application/json",
 				},
-				body: JSON.stringify({ appliedVersion: 0, streaming: false }),
+				body: JSON.stringify({
+					appliedVersion: 0,
+					streaming: false,
+					scenes: ["Main", "Be right back"],
+					currentScene: "Main",
+				}),
 			}),
 		);
 		expect(command.status).toBe(200);
 		expect(await command.json()).toMatchObject({
 			commandVersion: 1,
 			desiredStreaming: true,
+			desiredScene: null,
+		});
+		expect(await setObsScene("user-a", "Missing")).toBeNull();
+		expect(await setObsScene("user-a", "Be right back")).toMatchObject({
+			desiredScene: "Be right back",
+			pending: true,
 		});
 
 		await app.handle(
@@ -412,13 +424,49 @@ integration("relay PostgreSQL integration", () => {
 					authorization: `Bearer ${pairing.token}`,
 					"content-type": "application/json",
 				},
-				body: JSON.stringify({ appliedVersion: 1, streaming: true }),
+				body: JSON.stringify({
+					appliedVersion: 2,
+					streaming: true,
+					scenes: ["Main", "Be right back"],
+					currentScene: "Be right back",
+				}),
 			}),
 		);
 		expect(await getObsControlStatus("user-a")).toMatchObject({
 			connected: true,
+			currentScene: "Be right back",
+			desiredScene: "Be right back",
 			pending: false,
+			scenes: ["Main", "Be right back"],
 			streaming: true,
+		});
+		await app.handle(
+			new Request("http://localhost/api/obs/control", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${pairing.token}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					appliedVersion: 2,
+					streaming: true,
+					scenes: ["Main", "Renamed scene"],
+					currentScene: "Main",
+				}),
+			}),
+		);
+		expect(await getObsControlStatus("user-a")).toMatchObject({
+			currentScene: "Main",
+			desiredScene: "Main",
+			pending: false,
+			scenes: ["Main", "Renamed scene"],
+		});
+
+		await rotateObsControlToken("user-a");
+		expect(await getObsControlStatus("user-a")).toMatchObject({
+			currentScene: null,
+			desiredScene: null,
+			scenes: [],
 		});
 	});
 

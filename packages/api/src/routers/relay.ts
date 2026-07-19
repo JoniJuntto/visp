@@ -4,6 +4,7 @@ import { protectedProcedure, router } from "../index";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
+	setObsScene,
 	setObsStreaming,
 } from "../obs-control";
 import {
@@ -62,6 +63,18 @@ export const relayRoutes = {
 			.mutation(({ ctx, input }) =>
 				setObsStreaming(ctx.relayUser.id, input.streaming),
 			),
+		setScene: relayProcedure
+			.input(z.object({ scene: z.string().min(1).max(512) }))
+			.mutation(async ({ ctx, input }) => {
+				const result = await setObsScene(ctx.relayUser.id, input.scene);
+				if (!result) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "OBS scene is no longer available",
+					});
+				}
+				return result;
+			}),
 	}),
 	paths: router({
 		list: relayProcedure.query(async ({ ctx }) => {

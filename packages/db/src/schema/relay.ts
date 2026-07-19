@@ -42,6 +42,9 @@ export const appUser = pgTable("app_user", {
 		.default(false)
 		.notNull(),
 	obsStreaming: boolean("obs_streaming").default(false).notNull(),
+	obsScenes: text("obs_scenes").array().default(sql`ARRAY[]::text[]`).notNull(),
+	obsCurrentScene: text("obs_current_scene"),
+	obsDesiredScene: text("obs_desired_scene"),
 	obsCommandVersion: integer("obs_command_version").default(0).notNull(),
 	obsAppliedVersion: integer("obs_applied_version").default(0).notNull(),
 	obsLastSeenAt: timestamp("obs_last_seen_at", { withTimezone: true }),

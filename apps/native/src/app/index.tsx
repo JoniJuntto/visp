@@ -41,7 +41,7 @@ import type {
 } from "../../modules/visp-srt";
 import VispSrtModule, { VispSrtView } from "../../modules/visp-srt";
 import { FloatingChat } from "../components/floating-chat";
-import { ObsControlButton } from "../components/obs-control-button";
+import { ObsControls, type ObsStatus } from "../components/obs-control-button";
 import { StreamInfoSheet } from "../components/stream-info-sheet";
 import {
 	AUDIO_TIER_COLORS,
@@ -206,6 +206,7 @@ export default function Index() {
 	const [imageStabilizationEnabled, setImageStabilizationEnabled] =
 		useState<boolean>();
 	const [message, setMessage] = useState<string>();
+	const [obsStatus, setObsStatus] = useState<ObsStatus>();
 	const [liveStartedAt, setLiveStartedAt] = useState<number>();
 	const [previewing, setPreviewing] = useState(false);
 	const [provisioning, setProvisioning] = useState(false);
@@ -253,6 +254,7 @@ export default function Index() {
 					liveStartedAt,
 					message,
 					messages: liveChat.recentMessages,
+					obs: session ? obsStatus : undefined,
 					reconnectAttempt,
 					state,
 					statuses: liveChat.statuses,
@@ -266,7 +268,9 @@ export default function Index() {
 		liveChat.statuses,
 		liveStartedAt,
 		message,
+		obsStatus,
 		reconnectAttempt,
+		session,
 		state,
 	]);
 
@@ -1194,7 +1198,9 @@ export default function Index() {
 								</Pressable>
 							) : null}
 						</View>
-						{session ? <ObsControlButton onError={showToast} /> : null}
+						{session ? (
+							<ObsControls onError={showToast} onStatusChange={setObsStatus} />
+						) : null}
 						{streamUrl ? null : (
 							<View style={styles.urlActions}>
 								<Pressable

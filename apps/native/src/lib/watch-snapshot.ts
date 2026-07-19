@@ -25,6 +25,14 @@ export type WatchSnapshot = {
 			text: string;
 		}>;
 	};
+	obs?: {
+		configured: boolean;
+		connected: boolean;
+		pending: boolean;
+		scenes: string[];
+		currentScene: string | null;
+		desiredScene: string | null;
+	};
 };
 
 export function buildWatchSnapshot({
@@ -33,6 +41,7 @@ export function buildWatchSnapshot({
 	liveStartedAt,
 	message,
 	messages,
+	obs,
 	reconnectAttempt,
 	state,
 	statuses,
@@ -43,6 +52,7 @@ export function buildWatchSnapshot({
 	liveStartedAt?: number;
 	message?: string;
 	messages: ChatMessage[];
+	obs?: WatchSnapshot["obs"];
 	reconnectAttempt?: number;
 	state: StreamState;
 	statuses: Partial<Record<"twitch" | "kick", ChatProviderStatus["state"]>>;
@@ -71,5 +81,6 @@ export function buildWatchSnapshot({
 				text: chatMessage.fragments.map((fragment) => fragment.text).join(""),
 			})),
 		},
+		obs,
 	};
 }

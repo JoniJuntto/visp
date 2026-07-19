@@ -103,10 +103,10 @@ pprof stay disabled.
    SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for both
    `stream.visp-stream.com` and `docs.visp-stream.com` before Caddy obtains their
    certificates.
-6. Install the release helper as a root-owned executable:
+6. Install the stable release bootstrap as a root-owned executable:
 
    ```bash
-   sudo install -m 0755 deploy/visp-release /usr/local/sbin/visp-release
+   sudo install -m 0755 deploy/visp-release-bootstrap /usr/local/sbin/visp-release
    ```
 
    Configure root key authentication over Tailscale and the GitHub production
