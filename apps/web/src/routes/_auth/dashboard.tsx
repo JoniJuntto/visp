@@ -50,6 +50,7 @@ import { toast } from "sonner";
 import {
 	downloadSceneCollection,
 	RevealedValue,
+	UrlWithFallback,
 } from "@/components/credential-reveal";
 import { authClient } from "@/lib/auth-client";
 import { probeRelayRtt } from "@/lib/relay";
@@ -69,37 +70,43 @@ export const Route = createFileRoute("/_auth/dashboard")({
 
 function RouteComponent() {
 	return (
-		<main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
-			<header className="flex flex-col gap-1">
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					Signal path
-				</p>
-				<h1 className="font-bold font-display text-3xl uppercase tracking-tight">
-					Relay dashboard
-				</h1>
-				<p className="text-muted-foreground text-sm">
-					Devices publish to the relay, OBS reads the feeds, you go on air. Your
-					provider stream key never enters VISP.
-				</p>
+		<main className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-8 lg:px-8">
+			<header className="flex flex-wrap items-end justify-between gap-6">
+				<div className="flex max-w-xl flex-col gap-1">
+					<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
+						Signal path
+					</p>
+					<h1 className="font-bold font-display text-3xl uppercase tracking-tight">
+						Relay dashboard
+					</h1>
+					<p className="text-muted-foreground text-sm">
+						Devices publish to the relay, OBS reads the feeds, you go on air.
+						Your provider stream key never enters VISP.
+					</p>
+				</div>
+				<ChainStrip />
 			</header>
-			<ChainStrip />
-			<PublishingDevicesCard />
-			<ObsControlCard />
-			<section
-				aria-labelledby="advanced-heading"
-				className="flex flex-col gap-3"
-			>
-				<h2
-					className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]"
-					id="advanced-heading"
-				>
-					Advanced
-				</h2>
-				<CredentialsCard />
-				<ConnectionsCard />
-				<GuidanceCard />
-				<SetupCard />
-			</section>
+			<div className="grid items-start gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+				<PublishingDevicesCard />
+				<div className="flex flex-col gap-5">
+					<ObsControlCard />
+					<section
+						aria-labelledby="advanced-heading"
+						className="flex flex-col gap-3"
+					>
+						<h2
+							className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]"
+							id="advanced-heading"
+						>
+							Advanced
+						</h2>
+						<CredentialsCard />
+						<ConnectionsCard />
+						<GuidanceCard />
+						<SetupCard />
+					</section>
+				</div>
+			</div>
 		</main>
 	);
 }
@@ -165,7 +172,7 @@ function ChainNode({
 }) {
 	return (
 		<a
-			className="flex min-w-32 flex-1 flex-col gap-1 border bg-card p-3 transition-colors hover:border-ring"
+			className="flex min-w-28 flex-col gap-1 border bg-card p-3 transition-colors hover:border-ring"
 			href={href}
 		>
 			<span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
@@ -280,7 +287,7 @@ function SnapshotTile({ snapshot }: { snapshot: SnapshotView }) {
 			</div>
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
 				<strong>{snapshot.label}</strong>
-				<span className="text-muted-foreground text-xs">
+				<span className="font-mono text-muted-foreground text-xs">
 					{snapshot.capturedAt
 						? `Captured ${formatUtc(snapshot.capturedAt)}`
 						: "Waiting for first capture"}
@@ -659,8 +666,7 @@ function CredentialsCard() {
 					{bundle.urls.read.map((url) => (
 						<div className="flex flex-col gap-2" key={url.slug}>
 							<span className="font-medium">Read: {url.slug}</span>
-							<RevealedValue label="Read SRT URL" value={url.srt} />
-							<RevealedValue label="Read RTMP fallback" value={url.rtmp} />
+							<UrlWithFallback label="OBS URL" rtmp={url.rtmp} srt={url.srt} />
 						</div>
 					))}
 				</div>
@@ -797,17 +803,33 @@ function PathRow({ path }: { path: PathView }) {
 		}),
 	);
 
+	const live = path.publishing && !path.stale;
+
 	return (
-		<div className="flex flex-col gap-2 border p-3">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<strong>{path.label}</strong>
+		<div
+			className={`flex flex-col gap-2 border p-3 ${live ? "border-ring" : ""}`}
+		>
+			<div className="flex flex-wrap items-center gap-3">
+				<span
+					aria-hidden
+					className={`size-2 shrink-0 rounded-full ${
+						live
+							? "tally-pulse bg-tally"
+							: path.stale
+								? "bg-caution"
+								: "bg-muted-foreground/40"
+					}`}
+				/>
+				<div className="flex min-w-0 flex-1 flex-col">
+					<strong>{path.label}</strong>
+					<span className="font-mono text-muted-foreground text-xs">
+						{path.publishLastConnectedAt
+							? `Last connected ${formatUtc(path.publishLastConnectedAt)}`
+							: "Never connected"}
+					</span>
+				</div>
 				<PathStatus path={path} />
 			</div>
-			<p className="text-muted-foreground text-sm">
-				{path.publishLastConnectedAt
-					? `Last connected ${formatUtc(path.publishLastConnectedAt)}`
-					: "Never connected"}
-			</p>
 			<details className="group">
 				<summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-muted-foreground text-sm hover:text-foreground [&::-webkit-details-marker]:hidden">
 					<ChevronDownIcon
@@ -904,13 +926,11 @@ function PathRow({ path }: { path: PathView }) {
 						</Button>
 					</div>
 					{revealed ? (
-						<div className="flex flex-col gap-2">
-							<RevealedValue label="Publish SRT URL" value={revealed.srt} />
-							<RevealedValue
-								label="Publish RTMP fallback"
-								value={revealed.rtmp}
-							/>
-						</div>
+						<UrlWithFallback
+							label="Sending URL"
+							rtmp={revealed.rtmp}
+							srt={revealed.srt}
+						/>
 					) : null}
 				</div>
 			</details>
@@ -944,7 +964,7 @@ function PublishingDevicesCard() {
 				<StageTag>Stage 01 · Sources</StageTag>
 				<CardTitle>Publishing devices</CardTitle>
 				<CardDescription>
-					Every device has its own publish URL. Revealing or rotating one never
+					Every device has its own sending URL. Revealing or rotating one never
 					affects the others.
 				</CardDescription>
 			</CardHeader>
@@ -953,30 +973,29 @@ function PublishingDevicesCard() {
 					<div className="flex flex-col gap-4 border border-signal/40 bg-signal/5 p-3">
 						<div className="flex flex-col gap-2">
 							<p className="font-medium">
-								{created.path.label} — publish from your device
+								{created.path.label} — send the stream
 							</p>
-							<RevealedValue label="Publish SRT URL" value={created.urls.srt} />
-							<RevealedValue
-								label="Publish RTMP fallback"
-								value={created.urls.rtmp}
+							<p className="text-muted-foreground text-sm">
+								Add this URL to the app that sends the video — your phone, a
+								friend's phone, or any streaming software.
+							</p>
+							<UrlWithFallback
+								label="Sending URL"
+								rtmp={created.urls.rtmp}
+								srt={created.urls.srt}
 							/>
 						</div>
 						<div className="flex flex-col gap-2">
-							<p className="font-medium">
-								{created.path.label} — receive in OBS
-							</p>
+							<p className="font-medium">{created.path.label} — watch in OBS</p>
 							{created.read ? (
 								<>
 									<p className="text-muted-foreground text-sm">
-										Add this as a Media Source in OBS to see the feed.
+										Add this URL as a Media Source in OBS to see the feed.
 									</p>
-									<RevealedValue
-										label="Read SRT URL"
-										value={created.read.srt}
-									/>
-									<RevealedValue
-										label="Read RTMP fallback"
-										value={created.read.rtmp}
+									<UrlWithFallback
+										label="OBS URL"
+										rtmp={created.read.rtmp}
+										srt={created.read.srt}
 									/>
 								</>
 							) : (
