@@ -47,6 +47,8 @@ static bool parse_control_response(const char *json, struct control_response *re
 #ifdef VISP_PROTOCOL_TEST
 
 #include <stdio.h>
+#include <assert.h>
+#undef NDEBUG
 
 /* assert() is compiled out under -DNDEBUG (Release), so use a check that is
  * always evaluated and reports failure regardless of the build configuration. */
