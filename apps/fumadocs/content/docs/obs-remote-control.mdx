@@ -1,0 +1,72 @@
+---
+title: OBS remote control
+description: Pair the OBS plugin for authenticated start, stop, and scene switching.
+icon: Plug
+---
+
+The VISP plugin for OBS Studio 31 lets the web dashboard and the phone app
+start or stop your stream and switch scenes while you are away from the
+computer. It polls the API with one outbound HTTPS request every two seconds;
+OBS never opens an inbound port and no port forwarding is needed.
+
+## Install
+
+Download the package for your platform from the project's GitHub Release —
+Windows, macOS (signed and notarized), and Ubuntu packages are attached to
+every stable release with a `SHA256SUMS.txt`. Install it like any OBS plugin
+and restart OBS. Building from source is only needed for development; see the
+`apps/obs-plugin` README.
+
+## Pair
+
+1. In the VISP web dashboard, open **OBS remote control** and generate a token.
+2. In OBS, open **Tools → VISP Remote Control**.
+3. Paste the token and click **Save**, or download `config.ini` from the
+   dashboard and click **Import config.ini**.
+
+The dashboard shows **Connected** within a few seconds, without restarting
+OBS. If the dialog is unavailable, place the values manually: start OBS once,
+find the generated `config.ini` path in the OBS log, and fill it while OBS is
+closed:
+
+```ini
+[visp]
+control_url=https://APP_DOMAIN/api/obs/control
+token=the-token-shown-by-visp
+```
+
+OBS must already have a working streaming service and stream key configured.
+The plugin only invokes OBS's existing start and stop actions — VISP never
+sees the provider stream key.
+
+## Security model
+
+- The pairing token is random and 256-bit, shown exactly once. VISP stores
+  only its SHA-256 hash and compares in constant time.
+- Rotating the token in the dashboard disconnects every previously paired OBS
+  configuration at its next poll.
+- Treat `config.ini` as a machine credential: anyone holding it can start and
+  stop your stream. Rotate immediately if it is exposed.
+- Transport is ordinary HTTPS with normal TLS certificate verification through
+  OBS's bundled Qt network stack.
+
+## How commands flow
+
+Every two seconds the plugin reports its state — streaming or not, the scene
+list, and the current scene — and receives at most one pending command in
+return. The dashboard marks the pairing **Connected** while polls are under
+ten seconds old, and shows a live snapshot tile for each publishing path so
+you can see what OBS would broadcast before pressing start.
+
+Because commands ride on the next poll, a start or stop takes at most about
+two seconds to reach OBS.
+
+## Troubleshooting
+
+- **Never connects:** verify `control_url` points at the public app origin and
+  that the machine can reach it over HTTPS; the endpoint is authenticated by
+  the token, not by network location.
+- **Was connected, stopped after a rotation:** expected — re-pair with the new
+  token.
+- **Start does nothing in OBS:** configure a streaming service and key in OBS
+  first; the plugin does not supply them.
