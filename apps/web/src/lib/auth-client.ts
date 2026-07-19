@@ -32,6 +32,9 @@ function getServerUrl(url: string) {
 	return `http://localhost:3000${normalized}`;
 }
 export const authClient = createAuthClient({
-	baseURL: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
+	baseURL:
+		import.meta.env.PROD && typeof window !== "undefined"
+			? `${window.location.origin}/api/auth`
+			: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
 	plugins: [genericOAuthClient()],
 });

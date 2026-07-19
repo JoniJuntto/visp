@@ -46,6 +46,13 @@ if(BUILD_TESTING)
   get_target_property(_qt_core_include_dirs Qt6::Core INTERFACE_INCLUDE_DIRECTORIES)
   target_include_directories(visp-protocol-test PRIVATE ${_qt_core_include_dirs})
   add_test(NAME visp-protocol COMMAND visp-protocol-test)
+  if(WIN32)
+    add_custom_command(TARGET visp-protocol-test POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_RUNTIME_DLLS:visp-protocol-test>
+        $<TARGET_FILE_DIR:visp-protocol-test>
+      COMMAND_EXPAND_LISTS)
+  endif()
   if(APPLE)
     list(GET _qt_core_include_dirs 0 _qt_core_headers)
     get_filename_component(_qt_core_framework "${_qt_core_headers}" DIRECTORY)
