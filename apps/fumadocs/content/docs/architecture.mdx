@@ -1,0 +1,101 @@
+---
+title: Architecture
+description: Hosts, clients, media authentication, hooks, reconciliation, snapshots, and OBS control.
+icon: Network
+---
+
+VISP is a control plane wrapped around MediaMTX. The relay moves media without
+transcoding it; the app decides who may connect and tracks what is live.
+
+## Hosts and clients
+
+| Piece | Runs | Responsibility |
+| --- | --- | --- |
+| Relay host | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
+| App host | PostgreSQL, Elysia/tRPC API, TanStack Start portal | Twitch and Kick login, path and credential state, MediaMTX authentication, OBS control |
+| Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
+| Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
+| OBS plugin | Broadcaster's OBS Studio 31 | Outbound-only polling for start/stop and scene commands |
+
+The hosts talk over Tailscale for administration and the MediaMTX Control API.
+Media uses the relay's public SRT (UDP 8890), RTMP (TCP 1935), and WebRTC
+(UDP/TCP 8189) ports.
+
+## Media authentication
+
+MediaMTX asks the app before every new connection by calling
+`POST /api/mediamtx/auth`:
+
+1. Localhost RTSP reads are allowed without credentials — this is the snapshot
+   hook reading its own relay.
+2. Everything else must present a username and password.
+3. Allowed combinations are SRT publish/read, RTMP publish/read, and WebRTC
+   publish. Other protocols and actions are rejected.
+4. The app verifies the credential against the path's Argon2id hash and answers
+   allow or deny.
+
+Because the app sits only on connection establishment, an app outage leaves
+established streams running while new publish and read attempts fail
+authentication. This is the accepted failure mode.
+
+## Credential model
+
+- Each **publishing device** owns an independently revocable publish URL. It is
+  stored twice: encrypted for authenticated re-reveal in the portal, and as an
+  Argon2id hash for relay authentication. Rotating one device never interrupts
+  the others.
+- The **read credential** is account-wide and returned only at rotation time.
+  VISP keeps no plaintext, so a new OBS scene collection requires a rotation.
+- A path always belongs to exactly one user, and MediaMTX accepts one publisher
+  per path: the first connection wins until it disconnects.
+
+## Path state and reconciliation
+
+MediaMTX reports lifecycle changes to the app through hook endpoints
+(`POST /api/hooks/ready`, `not-ready`, `read`, `unread`), each authenticated
+with the shared `x-hook-secret`. The app updates path state from these events.
+
+Hooks can be lost, so the server also reconciles against the MediaMTX Control
+API over Tailscale every 10 seconds. The dashboard therefore converges within
+ten seconds of reality even after a relay restart or dropped hook.
+
+## Snapshots
+
+While a path is live, the relay captures a frame roughly once a minute:
+
+1. The snapshot hook asks the app for an upload target via
+   `POST /api/hooks/snapshot-upload/:path` (hook-secret protected).
+2. The app answers with a 60-second presigned S3 PUT URL for
+   `snapshots/{pathId}.jpg` — S3 access keys never leave the app host.
+3. `ffmpeg` reads the localhost RTSP mirror and overwrites the object.
+
+A bucket lifecycle rule expires objects after one day, so stopped paths
+disappear from storage without any cleanup job. The portal's OBS
+remote-control card shows the tiles for live paths only.
+
+## OBS remote control
+
+The plugin makes one outbound HTTPS `POST /api/obs/control` every two seconds
+and opens no inbound port. Each poll authenticates with a bearer token of the
+form `id.secret` (12-byte id, 32-byte secret); the app stores only a SHA-256
+hash and compares in constant time. The poll body reports the applied command
+version, current streaming state, the scene list, and the active scene; the
+response carries at most one pending command (start, stop, or switch scene).
+
+A pairing counts as **Connected** when its last poll is under ten seconds old.
+Rotating the token invalidates every previously paired OBS instance at the
+next poll.
+
+## Chat and metadata
+
+Twitch chat uses the signed-in broadcaster's account. Kick chat is delivered by
+Kick's `chat.message.sent` webhook to `POST /api/webhooks/kick`, verified with
+Kick's RSA signature, a timestamp window, and replay detection, then fanned out
+to native clients over a WebSocket. The native app can also edit stream
+metadata on the provider.
+
+## Boundaries
+
+VISP does not transcode, proxy provider stream keys, enforce quotas, bill
+users, host OBS, or scale MediaMTX horizontally. The relay forwards the
+H.264/AAC (or WebRTC H.264/Opus) feed exactly as published.

@@ -4,8 +4,26 @@ final class VispSrtModule: Module {
   func definition() -> ModuleDefinition {
     Name("VispSrt")
 
+    Events("onWatchSceneCommand")
+
+    OnStartObserving {
+      WatchBridge.shared.setSceneCommandHandler { [weak self] requestID, scene in
+        DispatchQueue.main.async {
+          self?.sendEvent("onWatchSceneCommand", ["requestId": requestID, "scene": scene])
+        }
+      }
+    }
+
+    OnStopObserving {
+      WatchBridge.shared.setSceneCommandHandler(nil)
+    }
+
     Function("syncWatchSnapshot") { (json: String) in
       WatchBridge.shared.sync(json)
+    }
+
+    Function("replyToWatchSceneCommand") { (requestID: String, error: String?) in
+      WatchBridge.shared.replyToSceneCommand(requestID: requestID, error: error)
     }
 
     View(VispSrtView.self) {

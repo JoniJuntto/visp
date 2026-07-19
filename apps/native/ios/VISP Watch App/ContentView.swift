@@ -7,8 +7,82 @@ struct ContentView: View {
     TabView {
       ChatView(snapshot: session.snapshot, isReachable: session.isReachable)
       HealthView(snapshot: session.snapshot, isReachable: session.isReachable)
+      ScenesView(session: session)
     }
     .tabViewStyle(.verticalPage)
+  }
+}
+
+private struct ScenesView: View {
+  @ObservedObject var session: WatchSessionModel
+
+  var body: some View {
+    if !session.isReachable {
+      PhoneUnavailableView()
+    } else if session.snapshot == nil {
+      ProgressView("Syncing")
+    } else if session.snapshot?.obs?.configured != true {
+      VStack(spacing: 8) {
+        Image(systemName: "rectangle.connected.to.line.below")
+          .font(.title2)
+        Text("Pair OBS in VISP")
+          .font(.headline)
+          .multilineTextAlignment(.center)
+      }
+    } else if session.snapshot?.obs?.connected != true {
+      VStack(spacing: 8) {
+        Image(systemName: "display.trianglebadge.exclamationmark")
+          .font(.title2)
+        Text("OBS offline")
+          .font(.headline)
+      }
+    } else if let obs = session.snapshot?.obs, obs.scenes.isEmpty {
+      ProgressView("Waiting for scenes")
+    } else if let obs = session.snapshot?.obs {
+      ScrollView {
+        LazyVStack(spacing: 5) {
+          Text("OBS scenes")
+            .font(.headline)
+          if let error = session.sceneCommandError {
+            Text(error)
+              .font(.caption2)
+              .foregroundStyle(.red)
+              .multilineTextAlignment(.center)
+          } else if let scene = session.busyScene {
+            ProgressView("Switching to \(scene)")
+              .font(.caption2)
+          } else if let scene = session.requestedScene {
+            Text("Requested \(scene)")
+              .font(.caption2)
+              .foregroundStyle(.green)
+          } else if obs.pending {
+            ProgressView("Waiting for OBS")
+              .font(.caption2)
+          }
+          ForEach(obs.scenes, id: \.self) { scene in
+            Button {
+              session.setScene(scene)
+            } label: {
+              HStack {
+                Text(scene)
+                  .lineLimit(2)
+                Spacer(minLength: 4)
+                if scene == obs.currentScene {
+                  Image(systemName: "checkmark")
+                    .foregroundStyle(.green)
+                }
+              }
+            }
+            .disabled(
+              obs.pending || session.busyScene != nil || session.requestedScene != nil
+            )
+            .accessibilityLabel(
+              scene == obs.currentScene ? "\(scene), current scene" : "Switch to \(scene)"
+            )
+          }
+        }
+      }
+    }
   }
 }
 

@@ -4,8 +4,13 @@ import WatchConnectivity
 final class WatchBridge: NSObject, WCSessionDelegate {
   static let shared = WatchBridge()
 
+  typealias SceneCommandHandler = (_ requestID: String, _ scene: String) -> Void
+  typealias MessageReply = ([String: Any]) -> Void
+
   private let lock = NSLock()
   private var latestSnapshot: Data?
+  private var sceneCommandHandler: SceneCommandHandler?
+  private var pendingReplies: [String: MessageReply] = [:]
 
   private override init() {
     super.init()
@@ -20,6 +25,20 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     latestSnapshot = data
     lock.unlock()
     push(data, through: WCSession.default)
+  }
+
+  func setSceneCommandHandler(_ handler: SceneCommandHandler?) {
+    lock.lock()
+    sceneCommandHandler = handler
+    lock.unlock()
+  }
+
+  func replyToSceneCommand(requestID: String, error: String?) {
+    lock.lock()
+    let reply = pendingReplies.removeValue(forKey: requestID)
+    lock.unlock()
+    guard let reply else { return }
+    reply(error.map { ["error": $0] } ?? ["ok": true])
   }
 
   private func snapshot() -> Data? {
@@ -55,11 +74,33 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     didReceiveMessage message: [String: Any],
     replyHandler: @escaping ([String: Any]) -> Void
   ) {
-    guard message["request"] as? String == "snapshot", let data = snapshot() else {
-      replyHandler([:])
+    if message["request"] as? String == "snapshot", let data = snapshot() {
+      replyHandler(["snapshot": data])
       return
     }
-    replyHandler(["snapshot": data])
+    guard
+      message["command"] as? String == "setObsScene",
+      let scene = message["scene"] as? String,
+      !scene.isEmpty
+    else {
+      replyHandler(["error": "Unsupported Watch command"])
+      return
+    }
+    lock.lock()
+    let handler = sceneCommandHandler
+    let requestID = UUID().uuidString
+    if handler != nil {
+      pendingReplies[requestID] = replyHandler
+    }
+    lock.unlock()
+    guard let handler else {
+      replyHandler(["error": "Open VISP on iPhone"])
+      return
+    }
+    handler(requestID, scene)
+    DispatchQueue.global().asyncAfter(deadline: .now() + 10) { [weak self] in
+      self?.replyToSceneCommand(requestID: requestID, error: "Scene switch timed out")
+    }
   }
 
   func sessionDidBecomeInactive(_ session: WCSession) {}

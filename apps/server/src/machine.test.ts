@@ -88,7 +88,12 @@ describe("machine endpoints", () => {
 			new Request("http://localhost/api/obs/control", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ appliedVersion: 0, streaming: false }),
+				body: JSON.stringify({
+					appliedVersion: 0,
+					streaming: false,
+					scenes: [],
+					currentScene: null,
+				}),
 			}),
 		);
 		expect(response.status).toBe(401);

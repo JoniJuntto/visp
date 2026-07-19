@@ -7,6 +7,7 @@ struct WatchSnapshot: Codable, Equatable {
   let updatedAt: Double
   let stream: WatchStreamSnapshot
   let chat: WatchChatSnapshot
+  let obs: WatchObsSnapshot?
 
   static func decode(_ data: Data) throws -> WatchSnapshot {
     let snapshot = try JSONDecoder().decode(WatchSnapshot.self, from: data)
@@ -15,6 +16,15 @@ struct WatchSnapshot: Codable, Equatable {
     }
     return snapshot
   }
+}
+
+struct WatchObsSnapshot: Codable, Equatable {
+  let configured: Bool
+  let connected: Bool
+  let pending: Bool
+  let scenes: [String]
+  let currentScene: String?
+  let desiredScene: String?
 }
 
 enum WatchSnapshotError: Error, Equatable {

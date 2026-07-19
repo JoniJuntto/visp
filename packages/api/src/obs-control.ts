@@ -31,6 +31,9 @@ function controlStatus(owner: typeof appUser.$inferSelect) {
 		connected,
 		streaming: owner.obsStreaming,
 		desiredStreaming: owner.obsDesiredStreaming,
+		scenes: owner.obsScenes,
+		currentScene: owner.obsCurrentScene,
+		desiredScene: owner.obsDesiredScene,
 		pending: owner.obsAppliedVersion < owner.obsCommandVersion,
 		lastSeenAt: owner.obsLastSeenAt?.toISOString() ?? null,
 	};
@@ -55,6 +58,9 @@ export async function rotateObsControlToken(userId: string) {
 			obsControlTokenHash: hash,
 			obsDesiredStreaming: false,
 			obsStreaming: false,
+			obsScenes: [],
+			obsCurrentScene: null,
+			obsDesiredScene: null,
 			obsCommandVersion: 0,
 			obsAppliedVersion: 0,
 			obsLastSeenAt: null,
@@ -78,9 +84,31 @@ export async function setObsStreaming(userId: string, streaming: boolean) {
 	return controlStatus(owner);
 }
 
+export async function setObsScene(userId: string, scene: string) {
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.id, userId),
+	});
+	if (!owner) throw new Error("Relay user not found");
+	if (!owner.obsScenes.includes(scene)) return null;
+	const [updated] = await db
+		.update(appUser)
+		.set({
+			obsDesiredScene: scene,
+			obsCommandVersion: sql`${appUser.obsCommandVersion} + 1`,
+		})
+		.where(eq(appUser.id, userId))
+		.returning();
+	return updated ? controlStatus(updated) : null;
+}
+
 export async function pollObsControl(
 	authorization: string | undefined,
-	input: { appliedVersion: number; streaming: boolean },
+	input: {
+		appliedVersion: number;
+		streaming: boolean;
+		scenes: string[];
+		currentScene: string | null;
+	},
 ) {
 	const token = parseObsControlToken(authorization);
 	if (!token) return null;
@@ -102,11 +130,18 @@ export async function pollObsControl(
 		input.appliedVersion,
 		owner.obsCommandVersion,
 	);
+	const desiredScene =
+		appliedVersion >= owner.obsCommandVersion
+			? input.currentScene
+			: owner.obsDesiredScene;
 	const [updated] = await db
 		.update(appUser)
 		.set({
 			obsAppliedVersion: appliedVersion,
 			obsStreaming: input.streaming,
+			obsScenes: input.scenes,
+			obsCurrentScene: input.currentScene,
+			obsDesiredScene: desiredScene,
 			obsLastSeenAt: new Date(),
 		})
 		.where(eq(appUser.id, owner.id))
@@ -115,6 +150,7 @@ export async function pollObsControl(
 	return {
 		commandVersion: updated.obsCommandVersion,
 		desiredStreaming: updated.obsDesiredStreaming,
+		desiredScene: updated.obsDesiredScene,
 		pollAfterMs: 2000,
 	};
 }

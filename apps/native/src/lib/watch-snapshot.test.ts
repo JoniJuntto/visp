@@ -23,6 +23,14 @@ describe("watch snapshot", () => {
 			liveStartedAt: 100,
 			message: "Reconnect attempt 2 of 3",
 			messages: [1, 2, 3, 4, 5].map((id) => message(String(id))),
+			obs: {
+				configured: true,
+				connected: true,
+				pending: false,
+				scenes: ["Main", "Be right back"],
+				currentScene: "Main",
+				desiredScene: "Main",
+			},
 			reconnectAttempt: 2,
 			state: "reconnecting",
 			statuses: { twitch: "connected", kick: "disconnected" },
@@ -52,6 +60,8 @@ describe("watch snapshot", () => {
 			message: "Reconnect attempt 2 of 3",
 			reconnectAttempt: 2,
 		});
+		expect(snapshot.obs?.scenes).toEqual(["Main", "Be right back"]);
+		expect(snapshot.obs?.currentScene).toBe("Main");
 		expect(JSON.stringify(snapshot)).not.toContain("example.test");
 		expect(JSON.stringify(snapshot)).not.toContain("opacity");
 	});

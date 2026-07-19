@@ -7,6 +7,7 @@ import {
 	HeadContent,
 	Outlet,
 	Scripts,
+	useLocation,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createMiddleware } from "@tanstack/react-start";
@@ -56,16 +57,22 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootDocument() {
+	// ponytail: landing brings its own nav; every other route keeps app chrome
+	const isLanding = useLocation({ select: (l) => l.pathname === "/" });
 	return (
 		<html lang="en" className="dark">
 			<head>
 				<HeadContent />
 			</head>
 			<body>
-				<div className="grid h-svh grid-rows-[auto_1fr]">
-					<Header />
+				{isLanding ? (
 					<Outlet />
-				</div>
+				) : (
+					<div className="grid h-svh grid-rows-[auto_1fr]">
+						<Header />
+						<Outlet />
+					</div>
+				)}
 				<Toaster richColors />
 				<TanStackRouterDevtools position="bottom-left" />
 				<ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

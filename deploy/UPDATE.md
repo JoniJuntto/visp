@@ -9,11 +9,15 @@ packages to the same GitHub Release.
 ## One-time app-server setup
 
 The repository must be owned by `root` and already cloned at `/opt/visp` from
-`PohinaGroup/visp`. Install the root-owned release entry point:
+`PohinaGroup/visp`. Install the stable root-owned release bootstrap:
 
 ```bash
-sudo install -m 0755 deploy/visp-release /usr/local/sbin/visp-release
+sudo install -m 0755 deploy/visp-release-bootstrap /usr/local/sbin/visp-release
 ```
+
+The bootstrap checks out the requested release, installs that release's helper
+under `/usr/local/libexec`, and executes it. Helper fixes therefore take effect
+in the same release run without reinstalling the bootstrap.
 
 Create these root-owned, mode `0600` files:
 
@@ -88,9 +92,10 @@ Create `vX.Y.Z` from a commit on `main`, then publish its GitHub Release. Draft
 and prerelease publications are ignored. The workflow serializes releases and
 first runs the repository tests, type checks, and all production builds.
 
-The app-server helper verifies the tag and 40-character commit SHA, locks the
-host, refuses tracked changes, checks out the exact release, installs frozen
-dependencies, migrates the database, and builds all four app-server artifacts
+The app-server bootstrap verifies the tag and 40-character commit SHA, locks the
+host, refuses tracked changes, checks out the exact release, and executes that
+release's helper. The helper installs frozen dependencies, migrates the database,
+and builds all four app-server artifacts
 before restarting either service. It validates Caddy before installing its
 configuration, then restarts `visp-server` and `visp-web`, reloads Caddy, and
 runs local smoke checks. Install, migration, or build failures therefore leave

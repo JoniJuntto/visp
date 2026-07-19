@@ -1,5 +1,14 @@
 {
   "title": "VISP Relay",
   "icon": "Radio",
-  "pages": ["index", "development", "broadcaster-setup", "deployment"]
+  "pages": [
+    "index",
+    "architecture",
+    "broadcaster-setup",
+    "phone-app",
+    "obs-remote-control",
+    "development",
+    "deployment",
+    "releases"
+  ]
 }
