@@ -42,7 +42,6 @@ export async function getSnapshotUploadUrl(
 	return client.presign(snapshotKey(livePath.id), {
 		expiresIn: 60,
 		method: "PUT",
-		type: "image/jpeg",
 	});
 }
 

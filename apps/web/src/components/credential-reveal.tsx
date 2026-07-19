@@ -49,6 +49,30 @@ export function RevealedValue({
 	);
 }
 
+export function UrlWithFallback({
+	label = "Stream URL",
+	srt,
+	rtmp,
+}: {
+	label?: string;
+	srt: string;
+	rtmp: string;
+}) {
+	return (
+		<div className="flex flex-col gap-2">
+			<RevealedValue label={label} value={srt} />
+			<details>
+				<summary className="cursor-pointer list-none text-muted-foreground text-sm hover:text-foreground [&::-webkit-details-marker]:hidden">
+					App doesn't accept SRT? Show the RTMP URL
+				</summary>
+				<div className="pt-2">
+					<RevealedValue label="RTMP fallback" value={rtmp} />
+				</div>
+			</details>
+		</div>
+	);
+}
+
 export function downloadSceneCollection(sceneCollection: {
 	filename: string;
 	json: unknown;
