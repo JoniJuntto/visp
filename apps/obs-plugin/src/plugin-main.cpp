@@ -420,8 +420,8 @@ static QUrl endpoint_url(const QString &control_url, const QString &path)
 {
 	QUrl result(control_url);
 	result.setPath(path);
-	result.setQuery({});
-	result.setFragment({});
+	result.setQuery(QString());
+	result.setFragment(QString());
 	return result;
 }
 

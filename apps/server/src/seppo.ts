@@ -1,6 +1,8 @@
 import { auth } from "@VISP/auth";
 import {
 	convertToModelMessages,
+	createUIMessageStream,
+	createUIMessageStreamResponse,
 	safeValidateUIMessages,
 	streamText,
 	tool,
@@ -22,6 +24,15 @@ VISP is for creators who want phones, remote guests, browser publishers, or othe
 Answer questions about what VISP is, who it is for, what it can do, downloads, beta status, privacy at a product level, and getting started. Point people to **Download**, **Docs**, or **Try VISP free** when useful. Do not invent pricing, roadmap, compatibility, or guarantees. Do not provide account-specific troubleshooting because you cannot inspect an anonymous visitor's account. Never ask for passwords, stream URLs, tokens, or API keys.
 
 ${FORMAT_PROMPT}`;
+
+const LANDING_SUGGESTION_RESPONSES: Record<string, string> = {
+	"What is VISP for?":
+		"VISP is for users who want to bring phones, remote guests, browser publishers, or other SRT/RTMP sources into a full OBS production through a relay. Each publishing device gets separate, revocable credentials, and your broadcast-platform stream key never enters VISP. VISP is free while in beta.",
+	"Can I use my phone with OBS?":
+		"Yes. Publish your phone's camera and mic with the **VISP mobile app**, then use the beta **VISP OBS plugin** to sign in and add the feed to your current scene. The browser publisher and other SRT-capable apps are also supported.",
+	"What do I need to get started?":
+		"You need a Twitch or Kick sign-in, a publishing device such as your phone, and OBS on your computer. Choose **Try VISP free**, finish the short setup, then use **Download** to get the phone app and beta OBS plugin. VISP is free while in beta.",
+};
 
 const SETUP_PROMPT = `You are Seppo, the concise and friendly VISP setup assistant.
 Help users finish VISP setup. Setup always creates one publishing device; they can add more later on the dashboard.
@@ -143,6 +154,31 @@ const contextConfig = {
 
 const landingRequests = new Map<string, { count: number; resetAt: number }>();
 
+export function landingSuggestionResponse(messages: UIMessage[]) {
+	const last = messages.at(-1);
+	if (last?.role !== "user" || last.parts.length !== 1) return undefined;
+	const part = last.parts[0];
+	return part?.type === "text"
+		? LANDING_SUGGESTION_RESPONSES[part.text]
+		: undefined;
+}
+
+function fixedTextResponse(text: string) {
+	return createUIMessageStreamResponse({
+		stream: createUIMessageStream({
+			execute({ writer }) {
+				writer.write({ type: "text-start", id: "fixed-response" });
+				writer.write({
+					type: "text-delta",
+					id: "fixed-response",
+					delta: text,
+				});
+				writer.write({ type: "text-end", id: "fixed-response" });
+			},
+		}),
+	});
+}
+
 export function resetSeppoRateLimit() {
 	landingRequests.clear();
 }
@@ -260,6 +296,10 @@ export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 			context,
 		);
 		if (!messages) return status(400, { error: "Invalid messages" });
+
+		const fixedResponse =
+			context === "landing" ? landingSuggestionResponse(messages) : undefined;
+		if (fixedResponse) return fixedTextResponse(fixedResponse);
 
 		if (
 			context === "landing" &&
