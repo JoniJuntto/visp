@@ -14,6 +14,7 @@ import { z } from "zod";
 import { authApiURL, authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/device")({
+	ssr: false,
 	validateSearch: z.object({ user_code: z.string().optional() }),
 	beforeLoad: async ({ location }) => {
 		const session = await authClient.getSession();
