@@ -1,21 +1,48 @@
 import type { AppRouter } from "@VISP/api/routers/index";
-import { Button, buttonVariants } from "@VISP/ui/components/button";
+import { env } from "@VISP/env/web";
+import { Bubble, BubbleContent } from "@VISP/ui/components/bubble";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@VISP/ui/components/card";
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupTextarea,
+} from "@VISP/ui/components/input-group";
+import { Message, MessageContent } from "@VISP/ui/components/message";
+import {
+	MessageScroller,
+	MessageScrollerButton,
+	MessageScrollerContent,
+	MessageScrollerItem,
+	MessageScrollerProvider,
+	MessageScrollerViewport,
+} from "@VISP/ui/components/message-scroller";
+import { useChat } from "@ai-sdk/react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Center } from "@astryxdesign/core/Center";
+import { ClickableCard } from "@astryxdesign/core/ClickableCard";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
+import { Grid } from "@astryxdesign/core/Grid";
+import { Icon } from "@astryxdesign/core/Icon";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
-import { ArrowLeftIcon, DownloadIcon } from "lucide-react";
-import { useState } from "react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import {
+	ArrowLeftIcon,
+	DownloadIcon,
+	RotateCcwIcon,
+	SendIcon,
+} from "lucide-react";
+import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 import {
-	CopyButton,
 	downloadSceneCollection,
+	RevealedValue,
 } from "@/components/credential-reveal";
 import { useTRPC } from "@/utils/trpc";
 
@@ -37,6 +64,26 @@ export const Route = createFileRoute("/_auth/setup")({
 type Outputs = inferRouterOutputs<AppRouter>;
 type SecretBundle = Outputs["onboarding"]["complete"];
 type Software = "obs" | "larix" | "moblin" | "other";
+
+const SEPPO_MESSAGES: UIMessage[] = [
+	{
+		id: "seppo-welcome",
+		role: "assistant",
+		parts: [
+			{
+				type: "text",
+				text: "Hi, I'm Seppo. Tell me what you want to stream and what gear or apps you already have, and I'll help you choose the simplest setup.",
+			},
+		],
+	},
+];
+
+const seppoTransport = new DefaultChatTransport({
+	api: import.meta.env.PROD
+		? "/api/setup-assistant"
+		: new URL("/api/setup-assistant", env.VITE_SERVER_URL).toString(),
+	credentials: "include",
+});
 
 const SOFTWARE_INFO: Record<
 	Software,
@@ -98,59 +145,210 @@ function OptionCard({
 	onClick: () => void;
 }) {
 	return (
-		<button
-			className="flex flex-col gap-1 border p-4 text-left transition-colors hover:border-primary hover:bg-accent"
-			type="button"
-			onClick={onClick}
-		>
-			<strong>{title}</strong>
-			<span className="text-muted-foreground">{description}</span>
-		</button>
+		<ClickableCard label={title} onClick={onClick}>
+			<VStack gap={1}>
+				<Text type="label">{title}</Text>
+				<Text color="secondary" type="supporting">
+					{description}
+				</Text>
+			</VStack>
+		</ClickableCard>
 	);
 }
 
-function DeviceStep({ onPick }: { onPick: (count: number) => void }) {
+function BackButton({ onBack }: { onBack: () => void }) {
+	return (
+		<Button
+			icon={<Icon color="inherit" icon={ArrowLeftIcon} size="sm" />}
+			label="Back"
+			variant="ghost"
+			onClick={onBack}
+		/>
+	);
+}
+
+function StepIntro({
+	title,
+	description,
+}: {
+	title: string;
+	description: string;
+}) {
+	return (
+		<VStack gap={1}>
+			<Heading level={2}>{title}</Heading>
+			<Text color="secondary">{description}</Text>
+		</VStack>
+	);
+}
+
+function DeviceStep({
+	onPick,
+	onTalkToSeppo,
+}: {
+	onPick: (count: number) => void;
+	onTalkToSeppo: () => void;
+}) {
 	const [pickingCount, setPickingCount] = useState(false);
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>How many devices will stream at the same time?</CardTitle>
-				<CardDescription>
-					A device is anything that sends video — a phone, a camera rig, a
-					laptop. You can add more later.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-3">
-				<OptionCard
-					description="One phone or one computer sends the video."
-					title="Just one device"
-					onClick={() => onPick(1)}
-				/>
-				{pickingCount ? (
-					<div className="flex flex-col gap-2 border p-4">
-						<strong>How many?</strong>
-						<div className="flex gap-2">
+		<VStack gap={4}>
+			<StepIntro
+				description="A device is anything that sends video — a phone, a camera rig, a laptop. You can add more later."
+				title="How many devices will stream at the same time?"
+			/>
+			<OptionCard
+				description="One phone or one computer sends the video."
+				title="Just one device"
+				onClick={() => onPick(1)}
+			/>
+			{pickingCount ? (
+				<Card variant="muted">
+					<VStack gap={2}>
+						<Text type="label">How many?</Text>
+						<HStack gap={2} wrap="wrap">
 							{[2, 3, 4].map((count) => (
 								<Button
 									key={count}
-									variant="outline"
+									label={`${count} devices`}
 									onClick={() => onPick(count)}
-								>
-									{count} devices
-								</Button>
+								/>
 							))}
-						</div>
-					</div>
-				) : (
-					<OptionCard
-						description="For example a main phone plus a backup phone or second angle."
-						title="Multiple at the same time"
-						onClick={() => setPickingCount(true)}
+						</HStack>
+					</VStack>
+				</Card>
+			) : (
+				<OptionCard
+					description="For example a main phone plus a backup phone or second angle."
+					title="Multiple at the same time"
+					onClick={() => setPickingCount(true)}
+				/>
+			)}
+			<OptionCard
+				description="Chat about your devices, streaming app, or any other setup question."
+				title="Not sure, talk with Seppo"
+				onClick={onTalkToSeppo}
+			/>
+		</VStack>
+	);
+}
+
+function SeppoChat({ onBack }: { onBack: () => void }) {
+	const [input, setInput] = useState("");
+	const { clearError, error, messages, regenerate, sendMessage, status } =
+		useChat({ messages: SEPPO_MESSAGES, transport: seppoTransport });
+	const isPending = status === "submitted" || status === "streaming";
+
+	function submit(event: FormEvent) {
+		event.preventDefault();
+		const text = input.trim();
+		if (!text || isPending) return;
+		clearError();
+		setInput("");
+		void sendMessage({ text });
+	}
+
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description="Ask about devices, streaming apps, OBS, or what happens next."
+				title="Talk with Seppo"
+			/>
+			<div
+				className="h-[min(60vh,32rem)] min-h-80 border bg-card"
+				aria-live="polite"
+			>
+				<MessageScrollerProvider>
+					<MessageScroller>
+						<MessageScrollerViewport>
+							<MessageScrollerContent className="p-4">
+								{messages.map((message) => (
+									<MessageScrollerItem key={message.id}>
+										<Message align={message.role === "user" ? "end" : "start"}>
+											<MessageContent>
+												{message.parts.map((part, index) =>
+													part.type === "text" ? (
+														<Bubble
+															key={`${message.id}-${index}`}
+															align={message.role === "user" ? "end" : "start"}
+															variant={
+																message.role === "user" ? "default" : "muted"
+															}
+														>
+															<BubbleContent className="whitespace-pre-wrap">
+																{part.text}
+															</BubbleContent>
+														</Bubble>
+													) : null,
+												)}
+											</MessageContent>
+										</Message>
+									</MessageScrollerItem>
+								))}
+								{status === "submitted" ? (
+									<MessageScrollerItem>
+										<Message>
+											<MessageContent>
+												<Bubble variant="muted">
+													<BubbleContent>Thinking…</BubbleContent>
+												</Bubble>
+											</MessageContent>
+										</Message>
+									</MessageScrollerItem>
+								) : null}
+							</MessageScrollerContent>
+						</MessageScrollerViewport>
+						<MessageScrollerButton />
+					</MessageScroller>
+				</MessageScrollerProvider>
+			</div>
+			{error ? (
+				<Banner
+					description="The assistant could not respond. You can retry without losing this conversation."
+					status="error"
+					title="Seppo is unavailable right now"
+				/>
+			) : null}
+			<form onSubmit={submit}>
+				<InputGroup>
+					<InputGroupTextarea
+						aria-label="Message Seppo"
+						disabled={isPending}
+						maxLength={2_000}
+						placeholder="Describe your streaming setup…"
+						rows={2}
+						value={input}
+						onChange={(event) => setInput(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter" && !event.shiftKey) submit(event);
+						}}
 					/>
-				)}
-			</CardContent>
-		</Card>
+					<InputGroupAddon align="inline-end">
+						<InputGroupButton
+							aria-label="Send message"
+							disabled={!input.trim() || isPending}
+							size="icon-sm"
+							type="submit"
+						>
+							<SendIcon />
+						</InputGroupButton>
+					</InputGroupAddon>
+				</InputGroup>
+			</form>
+			<HStack gap={2} wrap="wrap">
+				<BackButton onBack={onBack} />
+				{error ? (
+					<Button
+						icon={<Icon color="inherit" icon={RotateCcwIcon} size="sm" />}
+						label="Retry"
+						onClick={() => {
+							clearError();
+							void regenerate();
+						}}
+					/>
+				) : null}
+			</HStack>
+		</VStack>
 	);
 }
 
@@ -162,28 +360,33 @@ function SoftwareStep({
 	onPick: (software: Software) => void;
 }) {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Which app will you stream with?</CardTitle>
-				<CardDescription>
-					We'll tailor the instructions to your app.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-3">
-				{(Object.keys(SOFTWARE_INFO) as Software[]).map((value) => (
-					<OptionCard
-						key={value}
-						description={SOFTWARE_INFO[value].description}
-						title={SOFTWARE_INFO[value].name}
-						onClick={() => onPick(value)}
-					/>
-				))}
-				<Button className="self-start" variant="ghost" onClick={onBack}>
-					<ArrowLeftIcon data-icon="inline-start" />
-					Back
-				</Button>
-			</CardContent>
-		</Card>
+		<VStack gap={4}>
+			<StepIntro
+				description="We'll tailor the instructions to your app."
+				title="Which app will you stream with?"
+			/>
+			{(Object.keys(SOFTWARE_INFO) as Software[]).map((value) => (
+				<OptionCard
+					key={value}
+					description={SOFTWARE_INFO[value].description}
+					title={SOFTWARE_INFO[value].name}
+					onClick={() => onPick(value)}
+				/>
+			))}
+			<HStack>
+				<BackButton onBack={onBack} />
+			</HStack>
+		</VStack>
+	);
+}
+
+function NumberedSteps({ steps }: { steps: string[] }) {
+	return (
+		<List listStyle="decimal">
+			{steps.map((step) => (
+				<ListItem key={step} label={step} />
+			))}
+		</List>
 	);
 }
 
@@ -198,37 +401,20 @@ function DeviceLinkBlock({
 	fallback: string;
 	fallbackLabel: string;
 }) {
-	const [showFallback, setShowFallback] = useState(false);
-
 	return (
-		<div className="flex flex-col gap-3 border p-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<strong>Device {index + 1}</strong>
-				<CopyButton size="default" value={primary} variant="default">
-					Copy link for device {index + 1}
-				</CopyButton>
-			</div>
-			<code className="break-all text-muted-foreground text-xs">{primary}</code>
-			{showFallback ? (
-				<div className="flex flex-col gap-2 border-t pt-3">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<span className="text-muted-foreground">{fallbackLabel}</span>
-						<CopyButton value={fallback} />
-					</div>
-					<code className="break-all text-muted-foreground text-xs">
-						{fallback}
-					</code>
-				</div>
-			) : (
-				<button
-					className="self-start text-muted-foreground text-sm underline underline-offset-4 hover:text-foreground"
-					type="button"
-					onClick={() => setShowFallback(true)}
-				>
-					Link not working? Show a backup link
-				</button>
-			)}
-		</div>
+		<VStack gap={2}>
+			<RevealedValue label={`Device ${index + 1}`} value={primary} />
+			<Collapsible
+				defaultIsOpen={false}
+				trigger={
+					<Text color="secondary" type="supporting">
+						Link not working? Show a backup link
+					</Text>
+				}
+			>
+				<RevealedValue label={fallbackLabel} value={fallback} />
+			</Collapsible>
+		</VStack>
 	);
 }
 
@@ -245,6 +431,7 @@ function CredentialsStep({
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const [bundle, setBundle] = useState<SecretBundle | null>(null);
 	const complete = useMutation(
 		trpc.onboarding.complete.mutationOptions({
@@ -259,212 +446,192 @@ function CredentialsStep({
 
 	if (!bundle) {
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>Ready to create your stream links</CardTitle>
-					<CardDescription>
-						{deviceCount === 1 ? "One device" : `${deviceCount} devices`} ·{" "}
-						{info.name}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<p className="text-muted-foreground">
-						You'll get one link per device to paste into {info.name}, plus a
-						ready-made file for OBS on your streaming PC.
-					</p>
-					{redo ? (
-						<p className="border border-caution/40 bg-caution/10 p-3 text-caution">
-							Legacy paths will receive independent device URLs. Existing linked
-							devices keep their current URLs.
-						</p>
-					) : null}
-					<div className="flex flex-wrap gap-2">
-						<Button
-							disabled={complete.isPending}
-							onClick={() => complete.mutate({ deviceCount, software })}
-						>
-							{complete.isPending
-								? "Creating links..."
-								: "Create my stream links"}
-						</Button>
-						<Button variant="ghost" onClick={onBack}>
-							<ArrowLeftIcon data-icon="inline-start" />
-							Back
-						</Button>
-					</div>
-				</CardContent>
-			</Card>
+			<VStack gap={4}>
+				<StepIntro
+					description={`${deviceCount === 1 ? "One device" : `${deviceCount} devices`} · ${info.name}`}
+					title="Ready to create your stream links"
+				/>
+				<Text color="secondary">
+					You'll get one link per device to paste into {info.name}, plus a
+					ready-made file for OBS on your streaming PC.
+				</Text>
+				{redo ? (
+					<Banner
+						status="warning"
+						title="Legacy paths will receive independent device URLs."
+						description="Existing linked devices keep their current URLs."
+					/>
+				) : null}
+				<HStack gap={2} wrap="wrap">
+					<Button
+						isLoading={complete.isPending}
+						label="Create my stream links"
+						variant="primary"
+						onClick={() => complete.mutate({ deviceCount, software })}
+					/>
+					<BackButton onBack={onBack} />
+				</HStack>
+			</VStack>
 		);
 	}
 
 	const publishUrls = bundle.urls.publish ?? [];
 
 	return (
-		<div className="flex flex-col gap-6">
-			<div className="border p-4">
-				<strong>Your device links are ready</strong>
-				<p className="mt-1 text-muted-foreground">
-					They stay hidden on the dashboard until you choose Reveal, and each
-					device can be rotated independently.
-				</p>
-			</div>
+		<VStack gap={6}>
+			<Banner
+				description="They stay hidden on the dashboard until you choose Reveal, and each device can be rotated independently."
+				status="success"
+				title="Your device links are ready"
+			/>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>
-						{deviceCount === 1
-							? "On your streaming device"
-							: "On each streaming device"}
-					</CardTitle>
-					<CardDescription>
-						{deviceCount === 1
+			<VStack gap={3}>
+				<StepIntro
+					description={
+						deviceCount === 1
 							? "Paste this link into your app:"
-							: "Each device gets its own link — don't share one link between two devices."}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<ol className="list-decimal pl-5 text-muted-foreground">
-						{info.steps.map((step) => (
-							<li key={step}>{step}</li>
-						))}
-					</ol>
-					{publishUrls.slice(0, deviceCount).map((url, index) => (
-						<DeviceLinkBlock
-							key={url.slug}
-							fallback={info.primary === "srt" ? url.rtmp : url.srt}
-							fallbackLabel={
-								info.primary === "srt"
-									? "Backup link (RTMP — use if the main one won't connect)"
-									: "Backup link (SRT — better for shaky networks, if your app supports it)"
-							}
-							index={index}
-							primary={info.primary === "srt" ? url.srt : url.rtmp}
-						/>
-					))}
-				</CardContent>
-			</Card>
+							: "Each device gets its own link — don't share one link between two devices."
+					}
+					title={
+						deviceCount === 1
+							? "On your streaming device"
+							: "On each streaming device"
+					}
+				/>
+				<NumberedSteps steps={info.steps} />
+				{publishUrls.slice(0, deviceCount).map((url, index) => (
+					<DeviceLinkBlock
+						key={url.slug}
+						fallback={info.primary === "srt" ? url.rtmp : url.srt}
+						fallbackLabel={
+							info.primary === "srt"
+								? "Backup link (RTMP — use if the main one won't connect)"
+								: "Backup link (SRT — better for shaky networks, if your app supports it)"
+						}
+						index={index}
+						primary={info.primary === "srt" ? url.srt : url.rtmp}
+					/>
+				))}
+			</VStack>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>On your streaming PC (OBS)</CardTitle>
-					<CardDescription>
-						Choose how you want to add your{" "}
-						{deviceCount === 1 ? "feed" : "feeds"} to OBS.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="grid gap-4 sm:grid-cols-2">
-					<Card size="sm">
-						<CardHeader>
-							<CardTitle>By hand</CardTitle>
-						</CardHeader>
-						<CardContent className="flex flex-col gap-4">
-							<ol className="list-decimal pl-5 text-muted-foreground">
-								<li>In OBS, add a Media Source.</li>
-								<li>Turn off the “Local File” checkbox.</li>
-								<li>Paste the URL below. To "Input" field</li>
-							</ol>
+			<VStack gap={3}>
+				<StepIntro
+					description={`Choose how you want to add your ${deviceCount === 1 ? "feed" : "feeds"} to OBS.`}
+					title="On your streaming PC (OBS)"
+				/>
+				<Grid columns={{ minWidth: 280, repeat: "fit" }} gap={3}>
+					<Card>
+						<VStack gap={3}>
+							<Heading level={3}>By hand</Heading>
+							<NumberedSteps
+								steps={[
+									"In OBS, add a Media Source.",
+									"Turn off the “Local File” checkbox.",
+									'Paste the URL below into the "Input" field.',
+								]}
+							/>
 							{bundle.urls.read.slice(0, deviceCount).map((url, index) => (
-								<div className="flex flex-col gap-2" key={url.slug}>
-									<div className="flex items-center justify-between gap-2">
-										<strong>
-											{deviceCount === 1
-												? "Media source URL"
-												: `Device ${index + 1}`}
-										</strong>
-										<CopyButton value={url.srt} />
-									</div>
-									<code className="break-all text-muted-foreground text-xs">
-										{url.srt}
-									</code>
-								</div>
-							))}
-						</CardContent>
-					</Card>
-
-					<Card size="sm">
-						<CardHeader>
-							<CardTitle>Download the scene file</CardTitle>
-						</CardHeader>
-						<CardContent className="flex h-full flex-col gap-4">
-							<ol className="list-decimal pl-5 text-muted-foreground">
-								<li>Download the file below.</li>
-								<li>
-									In OBS, open Scene Collection → Import and pick the downloaded
-									file.
-								</li>
-								<li>
-									Your {deviceCount === 1 ? "device shows" : "devices show"} up
-									as ready-made scenes.
-								</li>
-							</ol>
-							{bundle.sceneCollection ? (
-								<Button
-									className="mt-auto self-start"
-									variant="secondary"
-									onClick={() =>
-										downloadSceneCollection(bundle.sceneCollection)
+								<RevealedValue
+									key={url.slug}
+									label={
+										deviceCount === 1
+											? "Media source URL"
+											: `Device ${index + 1}`
 									}
-								>
-									<DownloadIcon data-icon="inline-start" />
-									Download OBS scene file
-								</Button>
-							) : null}
-						</CardContent>
+									value={url.srt}
+								/>
+							))}
+						</VStack>
 					</Card>
-				</CardContent>
-			</Card>
 
-			<Link className={`${buttonVariants()} self-start`} to="/dashboard">
-				Go to my dashboard
-			</Link>
-		</div>
+					<Card>
+						<VStack gap={3}>
+							<Heading level={3}>Download the scene file</Heading>
+							<NumberedSteps
+								steps={[
+									"Download the file below.",
+									"In OBS, open Scene Collection → Import and pick the downloaded file.",
+									`Your ${deviceCount === 1 ? "device shows" : "devices show"} up as ready-made scenes.`,
+								]}
+							/>
+							{bundle.sceneCollection ? (
+								<HStack>
+									<Button
+										icon={
+											<Icon color="inherit" icon={DownloadIcon} size="sm" />
+										}
+										label="Download OBS scene file"
+										onClick={() =>
+											downloadSceneCollection(bundle.sceneCollection)
+										}
+									/>
+								</HStack>
+							) : null}
+						</VStack>
+					</Card>
+				</Grid>
+			</VStack>
+
+			<HStack>
+				<Button
+					label="Go to my dashboard"
+					variant="primary"
+					onClick={() => navigate({ to: "/dashboard" })}
+				/>
+			</HStack>
+		</VStack>
 	);
 }
 
 function SetupWizard() {
 	const { redo } = Route.useSearch();
 	const [step, setStep] = useState(0);
+	const [talkingToSeppo, setTalkingToSeppo] = useState(false);
 	const [deviceCount, setDeviceCount] = useState(1);
 	const [software, setSoftware] = useState<Software>("obs");
 
 	return (
-		<main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
-			<header className="flex flex-col gap-1">
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					Step {step + 1} of 3
-				</p>
-				<h1 className="font-bold font-display text-3xl uppercase tracking-tight">
-					Let's get you streaming
-				</h1>
-				<p className="text-muted-foreground">
-					Three quick questions, then you get your stream links.
-				</p>
-			</header>
-			{step === 0 ? (
-				<DeviceStep
-					onPick={(count) => {
-						setDeviceCount(count);
-						setStep(1);
-					}}
-				/>
-			) : null}
-			{step === 1 ? (
-				<SoftwareStep
-					onBack={() => setStep(0)}
-					onPick={(picked) => {
-						setSoftware(picked);
-						setStep(2);
-					}}
-				/>
-			) : null}
-			{step === 2 ? (
-				<CredentialsStep
-					deviceCount={deviceCount}
-					redo={redo}
-					software={software}
-					onBack={() => setStep(1)}
-				/>
-			) : null}
-		</main>
+		<Center axis="horizontal">
+			<VStack gap={6} maxWidth={680} padding={4} width="100%">
+				<VStack gap={1}>
+					<Text color="secondary" type="supporting">
+						Step {step + 1} of 3
+					</Text>
+					<Heading level={1}>Let's get you streaming</Heading>
+					<Text color="secondary">
+						Three quick questions, then you get your stream links.
+					</Text>
+				</VStack>
+				{step === 0 && talkingToSeppo ? (
+					<SeppoChat onBack={() => setTalkingToSeppo(false)} />
+				) : null}
+				{step === 0 && !talkingToSeppo ? (
+					<DeviceStep
+						onPick={(count) => {
+							setDeviceCount(count);
+							setStep(1);
+						}}
+						onTalkToSeppo={() => setTalkingToSeppo(true)}
+					/>
+				) : null}
+				{step === 1 ? (
+					<SoftwareStep
+						onBack={() => setStep(0)}
+						onPick={(picked) => {
+							setSoftware(picked);
+							setStep(2);
+						}}
+					/>
+				) : null}
+				{step === 2 ? (
+					<CredentialsStep
+						deviceCount={deviceCount}
+						redo={redo}
+						software={software}
+						onBack={() => setStep(1)}
+					/>
+				) : null}
+			</VStack>
+		</Center>
 	);
 }

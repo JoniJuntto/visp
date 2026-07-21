@@ -1,3 +1,4 @@
+process.env.AI_GATEWAY_API_KEY ??= "test-ai-gateway-key";
 process.env.DATABASE_URL ??= "postgresql://visp:visp@127.0.0.1:55432/visp_test";
 process.env.BETTER_AUTH_SECRET ??= "test-secret-that-is-at-least-32-characters";
 process.env.BETTER_AUTH_URL ??= "http://127.0.0.1:3000";

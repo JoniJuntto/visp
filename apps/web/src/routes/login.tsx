@@ -12,7 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { authClient } from "@/lib/auth-client";
+import { authClient, authRedirectURL } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/login")({
 	validateSearch: z.object({ error: z.string().optional() }),
@@ -29,13 +29,13 @@ function RouteComponent() {
 			provider === "twitch"
 				? await authClient.signIn.social({
 						provider,
-						callbackURL: "/setup",
-						errorCallbackURL: "/login",
+						callbackURL: authRedirectURL("/setup"),
+						errorCallbackURL: authRedirectURL("/login"),
 					})
 				: await authClient.signIn.oauth2({
 						providerId: provider,
-						callbackURL: "/setup",
-						errorCallbackURL: "/login",
+						callbackURL: authRedirectURL("/setup"),
+						errorCallbackURL: authRedirectURL("/login"),
 					});
 		if (result.error) {
 			toast.error(result.error.message ?? `${provider} sign-in failed`);

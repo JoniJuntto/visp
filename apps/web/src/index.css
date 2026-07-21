@@ -13,6 +13,15 @@
 @import "@VISP/ui/globals.css";
 
 /*
+ * astryx joins Tailwind's layers: its reset lands in `base` after preflight
+ * (so astryx components render correctly) while shadcn utility classes stay
+ * in `utilities` and keep winning on non-astryx pages.
+ */
+@import "@astryxdesign/core/reset.css" layer(base);
+@import "@astryxdesign/core/astryx.css" layer(components);
+@import "@astryxdesign/theme-neutral/theme.css" layer(components);
+
+/*
  * VISP visual identity: "signal chain, not SaaS".
  * Lifted cool charcoal, bone primary, color reserved for signal state
  * (tally red = live, amber = unknown, green = configured), SMPTE bars

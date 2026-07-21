@@ -6,8 +6,14 @@
 		"build": "tsdown",
 		"check-types": "tsc --noEmit",
 		"compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-		"dev": "bun run --hot src/index.ts",
+		"dev": "portless run --force",
+		"dev:app": "bun run --hot src/index.ts",
 		"start": "bun run dist/index.mjs"
+	},
+	"portless": {
+		"name": "api.visp",
+		"script": "dev:app",
+		"appPort": 3000
 	},
 	"dependencies": {
 		"@VISP/api": "workspace:*",
@@ -19,6 +25,7 @@
 		"@hono/trpc-server": "^0.4.2",
 		"@sinclair/typebox": "^0.34.49",
 		"@trpc/server": "catalog:",
+		"ai": "^6.0.0",
 		"better-auth": "catalog:",
 		"dotenv": "catalog:",
 		"elysia": "catalog:",

@@ -22,6 +22,9 @@
 		handle /api/chat/live {
 			reverse_proxy 127.0.0.1:3000
 		}
+		handle /api/setup-assistant {
+			reverse_proxy 127.0.0.1:3000
+		}
 		handle /api/obs/control {
 			reverse_proxy 127.0.0.1:3000
 		}

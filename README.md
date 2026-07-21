@@ -22,34 +22,25 @@ an established stream survives an app outage.
 
 ## Quick start
 
-Requirements: Bun 1.3.14+, PostgreSQL 17+, and provider credentials for any
-OAuth flow you want to use.
+Requirements: Bun 1.3.14+, Node.js 24+, Docker with Compose, and provider
+credentials for any OAuth flow you want to use.
 
 ```bash
 bun install
-cp apps/server/.env.example apps/server/.env
-cp apps/web/.env.example apps/web/.env
+bun run dev:local
 ```
 
-Fill every blank value in `apps/server/.env`, generate
-`PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, then prepare the
-database:
+The launcher creates missing env files, generates local secrets, validates all
+values, starts PostgreSQL 18, MinIO, MediaMTX, and Caddy through Compose, applies
+migrations, and starts the API and portal. Missing Twitch or Kick credentials
+are reported without preventing unrelated local work.
 
-```bash
-bun run db:migrate
-```
-
-Run the API and portal in separate terminals:
-
-```bash
-bun run dev:server
-bun run dev:web
-```
-
-The API listens on <http://127.0.0.1:3000> and the portal on
-<http://127.0.0.1:3001>. See [DEVELOPMENT.md](DEVELOPMENT.md) for PostgreSQL
-setup, OAuth callbacks, environment variables, native development, migrations,
-tests, and troubleshooting.
+Open the portal at <https://visp.localhost>, the API at
+<https://api.visp.localhost>, and MinIO at <https://minio.visp.localhost>.
+Stop the application with Ctrl+C; infrastructure stays available for quick
+restarts. Run `bun run dev:local:down` to stop it. See
+[DEVELOPMENT.md](DEVELOPMENT.md) for environment variables, native development,
+migrations, tests, and troubleshooting.
 
 ## Project layout
 

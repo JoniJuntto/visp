@@ -135,28 +135,23 @@ function DownloadPage() {
 						<CardHeader>
 							<CardTitle>iOS app</CardTitle>
 							<CardDescription>
-								iOS 16.4+ via the VISP Internal TestFlight group. SRT publish
-								from a real iPhone.
+								iOS 16.4+ via TestFlight open testing. SRT publish from a real
+								iPhone.
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
-								Ask for a TestFlight invite after you have a VISP account, or
-								email{" "}
-								<a
-									className="text-foreground underline underline-offset-4"
-									href={`mailto:${legalEntity.email}?subject=VISP%20TestFlight%20access`}
-								>
-									{legalEntity.email}
-								</a>{" "}
-								with your Apple ID email.
+								Install the TestFlight app, then join the VISP beta directly —
+								no invite needed.
 							</p>
-							<Link
+							<a
 								className={buttonVariants({ variant: "outline" })}
-								to="/contact"
+								href="https://testflight.apple.com/join/Fc3VttNn"
+								rel="noreferrer"
+								target="_blank"
 							>
-								Contact for TestFlight
-							</Link>
+								Join on TestFlight
+							</a>
 						</CardContent>
 					</Card>
 
@@ -164,27 +159,23 @@ function DownloadPage() {
 						<CardHeader>
 							<CardTitle>Android app</CardTitle>
 							<CardDescription>
-								Android 7+ via Play internal testing. SRT publish from a
-								physical device.
+								Android 7+ via Play open testing. SRT publish from a physical
+								device.
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
-								Request Play internal testing access after sign-in, or email{" "}
-								<a
-									className="text-foreground underline underline-offset-4"
-									href={`mailto:${legalEntity.email}?subject=VISP%20Play%20internal%20testing`}
-								>
-									{legalEntity.email}
-								</a>{" "}
-								with the Google account email you use for Play.
+								Join the open testing program with any Google account, then
+								install VISP from Google Play.
 							</p>
-							<Link
+							<a
 								className={buttonVariants({ variant: "outline" })}
-								to="/contact"
+								href="https://play.google.com/apps/testing/com.pohinagroup.visp"
+								rel="noreferrer"
+								target="_blank"
 							>
-								Contact for Play access
-							</Link>
+								Join on Google Play
+							</a>
 						</CardContent>
 					</Card>
 				</div>

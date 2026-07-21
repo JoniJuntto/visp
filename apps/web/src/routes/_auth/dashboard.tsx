@@ -1,39 +1,34 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { env } from "@VISP/env/web";
-import { Badge } from "@VISP/ui/components/badge";
-import { Button, buttonVariants } from "@VISP/ui/components/button";
-import {
-	Card,
-	CardAction,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@VISP/ui/components/card";
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from "@VISP/ui/components/empty";
-import {
-	Field,
-	FieldDescription,
-	FieldGroup,
-	FieldLabel,
-} from "@VISP/ui/components/field";
-import { Input } from "@VISP/ui/components/input";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@VISP/ui/components/native-select";
-import { Skeleton } from "@VISP/ui/components/skeleton";
+import { AspectRatio } from "@astryxdesign/core/AspectRatio";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Center } from "@astryxdesign/core/Center";
+import { ClickableCard } from "@astryxdesign/core/ClickableCard";
+import { Collapsible, CollapsibleGroup } from "@astryxdesign/core/Collapsible";
+import { Divider } from "@astryxdesign/core/Divider";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Grid } from "@astryxdesign/core/Grid";
+import { Icon } from "@astryxdesign/core/Icon";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { NumberInput } from "@astryxdesign/core/NumberInput";
+import { Selector } from "@astryxdesign/core/Selector";
+import { Skeleton } from "@astryxdesign/core/Skeleton";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	Link,
+	redirect,
+	useNavigate,
+} from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import {
-	ChevronDownIcon,
 	DownloadIcon,
 	EyeIcon,
 	LinkIcon,
@@ -45,23 +40,28 @@ import {
 	Trash2Icon,
 	UnlinkIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import {
 	downloadSceneCollection,
 	RevealedValue,
 	UrlWithFallback,
 } from "@/components/credential-reveal";
-import { authClient } from "@/lib/auth-client";
+import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { probeRelayRtt } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/dashboard")({
 	beforeLoad: async ({ context }) => {
-		const status = await context.queryClient.ensureQueryData(
-			context.trpc.secrets.status.queryOptions(),
-		);
-		if (!status.onboardedAt) {
+		const [status, paths] = await Promise.all([
+			context.queryClient.ensureQueryData(
+				context.trpc.secrets.status.queryOptions(),
+			),
+			context.queryClient.ensureQueryData(
+				context.trpc.paths.list.queryOptions(),
+			),
+		]);
+		if (!status.onboardedAt && !paths.some((path) => path.publishRevealable)) {
 			throw redirect({ to: "/setup", search: { redo: false } });
 		}
 	},
@@ -70,93 +70,91 @@ export const Route = createFileRoute("/_auth/dashboard")({
 
 function RouteComponent() {
 	return (
-		<main className="mx-auto flex w-full max-w-[1180px] flex-col gap-7 px-4 py-8 lg:px-8">
-			<header className="flex flex-wrap items-end justify-between gap-6">
-				<div className="flex max-w-xl flex-col gap-1">
-					<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-						Signal path
-					</p>
-					<h1 className="font-bold font-display text-3xl uppercase tracking-tight">
-						Relay dashboard
-					</h1>
-					<p className="text-muted-foreground text-sm">
-						Devices publish to the relay, OBS reads the feeds, you go on air.
-						Your provider stream key never enters VISP.
-					</p>
-				</div>
-				<ChainStrip />
-			</header>
-			<div className="grid items-start gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-				<PublishingDevicesCard />
-				<div className="flex flex-col gap-5">
-					<ObsControlCard />
-					<section
-						aria-labelledby="advanced-heading"
-						className="flex flex-col gap-3"
-					>
-						<h2
-							className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]"
-							id="advanced-heading"
-						>
-							Advanced
-						</h2>
-						<CredentialsCard />
-						<ConnectionsCard />
-						<GuidanceCard />
-						<SetupCard />
-					</section>
-				</div>
-			</div>
-		</main>
+		<Center axis="horizontal">
+			<VStack gap={6} maxWidth={1180} padding={4} width="100%">
+				<HStack gap={6} hAlign="between" vAlign="end" wrap="wrap">
+					<VStack gap={1} maxWidth={560}>
+						<Text color="secondary" type="supporting">
+							Signal path
+						</Text>
+						<Heading level={1}>Relay dashboard</Heading>
+						<Text color="secondary" type="supporting">
+							Devices publish to the relay, OBS reads the feeds, you go on air.
+							Your provider stream key never enters VISP.
+						</Text>
+					</VStack>
+					<ChainStrip />
+				</HStack>
+				<Grid columns={{ minWidth: 440, repeat: "fit" }} gap={4}>
+					<PublishingDevicesCard />
+					<VStack gap={4}>
+						<ObsControlCard />
+						<VStack gap={2}>
+							<Text color="secondary" type="supporting">
+								Advanced
+							</Text>
+							<CollapsibleGroup hasDividers type="multiple">
+								<CredentialsCard />
+								<ConnectionsCard />
+								<GuidanceCard />
+								<SetupCard />
+							</CollapsibleGroup>
+						</VStack>
+					</VStack>
+				</Grid>
+			</VStack>
+		</Center>
 	);
 }
 
 function AdvancedSection({
 	id,
+	value,
 	tag,
 	title,
 	action,
 	children,
 }: {
 	id?: string;
+	value: string;
 	tag: string;
 	title: string;
 	action?: ReactNode;
 	children: ReactNode;
 }) {
 	return (
-		<details className="group scroll-mt-6 border bg-card" id={id}>
-			<summary className="flex cursor-pointer list-none flex-col gap-1 p-4 [&::-webkit-details-marker]:hidden">
-				<StageTag>{tag}</StageTag>
-				<span className="flex flex-wrap items-center gap-2 font-semibold">
-					{title}
-					{action}
-					<ChevronDownIcon
-						aria-hidden
-						className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-					/>
-				</span>
-			</summary>
-			<div className="flex flex-col gap-4 border-t p-4">{children}</div>
-		</details>
-	);
-}
-
-function StageTag({ children }: { children: string }) {
-	return (
-		<p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
-			{children}
-		</p>
+		<Collapsible
+			defaultIsOpen={false}
+			trigger={
+				<VStack gap={0.5}>
+					<Text color="secondary" id={id} type="supporting">
+						{tag}
+					</Text>
+					<HStack gap={2} vAlign="center" wrap="wrap">
+						<Text type="label">{title}</Text>
+						{action}
+					</HStack>
+				</VStack>
+			}
+			value={value}
+		>
+			<VStack gap={4} paddingBlock={2}>
+				{children}
+			</VStack>
+		</Collapsible>
 	);
 }
 
 type NodeState = "live" | "ok" | "warn" | "idle";
 
-const nodeDot: Record<NodeState, string> = {
-	live: "tally-pulse bg-tally",
-	ok: "bg-signal",
-	warn: "bg-caution",
-	idle: "bg-muted-foreground",
+const nodeDot: Record<
+	NodeState,
+	{ variant: "success" | "warning" | "error" | "neutral"; pulse: boolean }
+> = {
+	live: { variant: "error", pulse: true },
+	ok: { variant: "success", pulse: false },
+	warn: { variant: "warning", pulse: false },
+	idle: { variant: "neutral", pulse: false },
 };
 
 function ChainNode({
@@ -170,31 +168,23 @@ function ChainNode({
 	value: string;
 	state: NodeState;
 }) {
+	const dot = nodeDot[state];
 	return (
-		<a
-			className="flex min-w-28 flex-col gap-1 border bg-card p-3 transition-colors hover:border-ring"
-			href={href}
-		>
-			<span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
-				<span
-					aria-hidden
-					className={`size-1.5 rounded-full ${nodeDot[state]}`}
-				/>
-				{label}
-			</span>
-			<span className="font-display text-lg uppercase leading-tight tracking-wide">
-				{value}
-			</span>
-		</a>
-	);
-}
-
-function Connector() {
-	return (
-		<span
-			aria-hidden
-			className="h-px w-3 shrink-0 self-center bg-border sm:w-6"
-		/>
+		<ClickableCard href={href} label={`${label}: ${value}`} padding={3}>
+			<VStack gap={1}>
+				<HStack gap={1.5} vAlign="center">
+					<StatusDot
+						isPulsing={dot.pulse}
+						label={label}
+						variant={dot.variant}
+					/>
+					<Text color="secondary" type="supporting">
+						{label}
+					</Text>
+				</HStack>
+				<Text type="label">{value}</Text>
+			</VStack>
+		</ClickableCard>
 	);
 }
 
@@ -215,31 +205,25 @@ function ChainStrip() {
 	const obsStatus = obs.data;
 
 	return (
-		<nav
-			aria-label="Signal chain"
-			className="flex items-stretch overflow-x-auto"
-		>
+		<HStack as="nav" gap={2} isScrollable vAlign="stretch">
 			<ChainNode
 				href="#devices"
 				label="Sources"
 				state={live > 0 ? "live" : total > 0 ? "idle" : "warn"}
 				value={total === 0 ? "No devices" : `${live} of ${total} live`}
 			/>
-			<Connector />
 			<ChainNode
 				href="#obs-read"
 				label="Relay"
 				state={readConfigured ? "ok" : "warn"}
 				value={readConfigured ? "Keys set" : "Setup needed"}
 			/>
-			<Connector />
 			<ChainNode
 				href="#obs-control"
 				label="OBS"
 				state={obsStatus?.connected ? "ok" : "idle"}
 				value={obsStatus?.connected ? "Connected" : "Not connected"}
 			/>
-			<Connector />
 			<ChainNode
 				href="#obs-control"
 				label="Output"
@@ -252,7 +236,7 @@ function ChainStrip() {
 						: "Not paired"
 				}
 			/>
-		</nav>
+		</HStack>
 	);
 }
 
@@ -265,35 +249,46 @@ type Guidance = Outputs["rtt"]["submit"];
 type ObsPairing = Outputs["obs"]["pair"];
 type SnapshotView = Outputs["obs"]["snapshots"][number];
 
+const snapshotImage = {
+	width: "100%",
+	height: "100%",
+	objectFit: "cover",
+} as const;
+
 function SnapshotTile({ snapshot }: { snapshot: SnapshotView }) {
 	return (
-		<li className="flex flex-col gap-2 border p-2">
-			<div className="relative aspect-video overflow-hidden bg-muted">
-				<p className="absolute inset-0 grid place-items-center p-3 text-center text-muted-foreground text-sm">
-					Snapshot pending
-				</p>
-				{snapshot.url ? (
-					<img
-						alt={`Latest snapshot from ${snapshot.label}`}
-						className="absolute inset-0 size-full object-cover"
-						key={snapshot.url}
-						loading="lazy"
-						onError={(event) => {
-							event.currentTarget.hidden = true;
-						}}
-						src={snapshot.url}
-					/>
-				) : null}
-			</div>
-			<div className="flex flex-wrap items-baseline justify-between gap-2">
-				<strong>{snapshot.label}</strong>
-				<span className="font-mono text-muted-foreground text-xs">
+		<VStack gap={2}>
+			<Card padding={0} variant="muted">
+				<AspectRatio ratio={16 / 9}>
+					{snapshot.url ? (
+						<img
+							alt={`Latest snapshot from ${snapshot.label}`}
+							key={snapshot.url}
+							loading="lazy"
+							onError={(event) => {
+								event.currentTarget.hidden = true;
+							}}
+							src={snapshot.url}
+							style={snapshotImage}
+						/>
+					) : (
+						<Center>
+							<Text color="secondary" type="supporting">
+								Snapshot pending
+							</Text>
+						</Center>
+					)}
+				</AspectRatio>
+			</Card>
+			<HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
+				<Text type="label">{snapshot.label}</Text>
+				<Text color="secondary" type="supporting">
 					{snapshot.capturedAt
 						? `Captured ${formatUtc(snapshot.capturedAt)}`
 						: "Waiting for first capture"}
-				</span>
-			</div>
-		</li>
+				</Text>
+			</HStack>
+		</VStack>
 	);
 }
 
@@ -343,33 +338,32 @@ function ObsControlCard() {
 	};
 
 	return (
-		<Card className="scroll-mt-6" id="obs-control">
-			<CardHeader>
-				<StageTag>Stage 02 · On air</StageTag>
-				<CardTitle>OBS</CardTitle>
-				<CardDescription>
-					Start or stop your OBS stream and watch what each live feed is
-					sending. The OBS plugin is live in beta —{" "}
-					<Link
-						className="text-foreground underline underline-offset-4"
-						to="/download"
-					>
-						download the plugin
-					</Link>
-					.
-				</CardDescription>
-				<CardAction>
-					<Badge variant={status?.connected ? "default" : "outline"}>
-						<span
-							aria-hidden
-							className={`size-1.5 rounded-full ${status?.connected ? "bg-tally" : "bg-muted-foreground"}`}
-						/>
-						{status?.connected ? "Connected" : "Disconnected"}
-					</Badge>
-				</CardAction>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-4">
-				<p className="text-muted-foreground">
+		<Card>
+			<VStack gap={4}>
+				<VStack gap={1}>
+					<Text color="secondary" id="obs-control" type="supporting">
+						Stage 02 · On air
+					</Text>
+					<HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
+						<Heading level={2}>OBS</Heading>
+						<HStack gap={1.5} vAlign="center">
+							<StatusDot
+								label={status?.connected ? "Connected" : "Disconnected"}
+								variant={status?.connected ? "success" : "neutral"}
+							/>
+							<Text color="secondary" type="supporting">
+								{status?.connected ? "Connected" : "Disconnected"}
+							</Text>
+						</HStack>
+					</HStack>
+					<Text color="secondary" type="supporting">
+						Start or stop your OBS stream and watch what each live feed is
+						sending. The OBS plugin is live in beta —{" "}
+						<Link to="/download">download the plugin</Link>.
+					</Text>
+				</VStack>
+
+				<Text color="secondary">
 					{status?.configured
 						? status.pending
 							? "OBS has not acknowledged the latest command yet."
@@ -377,67 +371,56 @@ function ObsControlCard() {
 								? "OBS reports that the stream is live."
 								: "OBS reports that the stream is stopped."
 						: "OBS is not paired yet. Open plugin pairing below to connect it."}
-				</p>
-				<section
-					aria-labelledby="obs-snapshots-heading"
-					className="flex flex-col gap-3"
-				>
-					<div className="flex flex-col gap-1">
-						<h2 className="font-medium" id="obs-snapshots-heading">
-							Live stream snapshots
-						</h2>
-						<p className="text-muted-foreground text-sm">
+				</Text>
+
+				<VStack gap={2}>
+					<VStack gap={0.5}>
+						<Text type="label">Live stream snapshots</Text>
+						<Text color="secondary" type="supporting">
 							Each live feed refreshes about once per minute.
-						</p>
-					</div>
+						</Text>
+					</VStack>
 					{snapshotsQuery.isPending ? (
-						<Skeleton className="aspect-video w-full" />
+						<Skeleton height={180} />
 					) : snapshotsQuery.data?.length ? (
-						<ul className="grid gap-3 sm:grid-cols-2">
+						<Grid columns={{ minWidth: 220, repeat: "fit" }} gap={3}>
 							{snapshotsQuery.data.map((snapshot) => (
 								<SnapshotTile key={snapshot.pathId} snapshot={snapshot} />
 							))}
-						</ul>
+						</Grid>
 					) : (
-						<Empty className="border py-6">
-							<EmptyHeader>
-								<EmptyTitle>No live streams</EmptyTitle>
-								<EmptyDescription>
-									Snapshots appear here when a publishing device is live.
-								</EmptyDescription>
-							</EmptyHeader>
-						</Empty>
-					)}
-				</section>
-				<details className="group border">
-					<summary className="flex cursor-pointer list-none items-center gap-2 p-3 font-medium text-sm [&::-webkit-details-marker]:hidden">
-						Plugin pairing
-						<ChevronDownIcon
-							aria-hidden
-							className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+						<EmptyState
+							description="Snapshots appear here when a publishing device is live."
+							isCompact
+							title="No live streams"
 						/>
-					</summary>
-					<div className="flex flex-col gap-3 border-t p-3">
-						<p className="text-muted-foreground text-sm">
+					)}
+				</VStack>
+
+				<Collapsible
+					defaultIsOpen={false}
+					trigger={<Text type="label">Plugin pairing</Text>}
+				>
+					<VStack gap={3} paddingBlock={2}>
+						<Text color="secondary" type="supporting">
 							Install the beta plugin from the{" "}
-							<Link
-								className="text-foreground underline underline-offset-4"
-								to="/download"
-							>
-								download page
-							</Link>
-							, then generate a token and open Tools → VISP Remote Control in
-							OBS. Paste the token there or import the downloaded config.ini.
-							VISP stores only a one-way hash, and generating another token
-							disconnects the old one.
-						</p>
+							<Link to="/download">download page</Link>, then generate a token
+							and open Tools → VISP Remote Control in OBS. Paste the token there
+							or import the downloaded config.ini. VISP stores only a one-way
+							hash, and generating another token disconnects the old one.
+						</Text>
 						{pairing ? (
 							<RevealedValue label="OBS pairing token" value={pairing.token} />
 						) : null}
-						<div className="flex flex-wrap gap-2">
+						<HStack gap={2} wrap="wrap">
 							<Button
-								disabled={pair.isPending}
-								variant="outline"
+								icon={<Icon color="inherit" icon={MonitorIcon} size="sm" />}
+								isLoading={pair.isPending}
+								label={
+									status?.configured
+										? "Rotate pairing token"
+										: "Generate pairing token"
+								}
 								onClick={() => {
 									if (
 										!status?.configured ||
@@ -446,33 +429,32 @@ function ObsControlCard() {
 										pair.mutate();
 									}
 								}}
-							>
-								<MonitorIcon data-icon="inline-start" />
-								{status?.configured
-									? "Rotate pairing token"
-									: "Generate pairing token"}
-							</Button>
+							/>
 							{pairing ? (
-								<Button variant="secondary" onClick={downloadConfig}>
-									<DownloadIcon data-icon="inline-start" />
-									Download plugin config
-								</Button>
+								<Button
+									icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
+									label="Download plugin config"
+									onClick={downloadConfig}
+								/>
 							) : null}
-						</div>
-					</div>
-				</details>
-			</CardContent>
-			<CardFooter>
-				<Button
-					disabled={
-						!status?.connected || status.pending || setStreaming.isPending
-					}
-					onClick={() => setStreaming.mutate({ streaming: !status?.streaming })}
-				>
-					<PowerIcon data-icon="inline-start" />
-					{status?.streaming ? "Stop OBS stream" : "Start OBS stream"}
-				</Button>
-			</CardFooter>
+						</HStack>
+					</VStack>
+				</Collapsible>
+
+				<HStack>
+					<Button
+						icon={<Icon color="inherit" icon={PowerIcon} size="sm" />}
+						isDisabled={
+							!status?.connected || status.pending || setStreaming.isPending
+						}
+						label={status?.streaming ? "Stop OBS stream" : "Start OBS stream"}
+						variant="primary"
+						onClick={() =>
+							setStreaming.mutate({ streaming: !status?.streaming })
+						}
+					/>
+				</HStack>
+			</VStack>
 		</Card>
 	);
 }
@@ -505,7 +487,7 @@ function ConnectionsCard() {
 			provider === "twitch"
 				? await authClient.linkSocial({
 						provider,
-						callbackURL: "/dashboard",
+						callbackURL: authRedirectURL("/dashboard"),
 						// Twitch tokens keep only the last-requested scopes, so always
 						// re-request the union or one feature's consent drops the other's.
 						scopes: chatConsent
@@ -514,7 +496,7 @@ function ConnectionsCard() {
 					})
 				: await authClient.oauth2.link({
 						providerId: provider,
-						callbackURL: "/dashboard",
+						callbackURL: authRedirectURL("/dashboard"),
 					});
 		if (result.error)
 			toast.error(result.error.message ?? `Could not link ${provider}`);
@@ -535,87 +517,98 @@ function ConnectionsCard() {
 		connections.data?.filter((connection) => connection.linked).length ?? 0;
 
 	return (
-		<AdvancedSection tag="Advanced · Chat" title="Connections">
-			<p className="text-muted-foreground text-sm">
+		<AdvancedSection tag="Advanced · Chat" title="Connections" value="chat">
+			<Text color="secondary" type="supporting">
 				Link either provider for login, then opt into its read-only live chat
 				separately.
-			</p>
+			</Text>
 			{connections.data?.map((connection) => {
 				const label = connection.provider === "twitch" ? "Twitch" : "Kick";
 				return (
-					<div
-						className="flex flex-wrap items-center justify-between gap-3 border p-3"
-						key={connection.provider}
-					>
-						<div className="flex flex-col gap-1">
-							<div className="flex items-center gap-2">
-								<span className="font-medium">{label}</span>
-								<Badge variant={connection.linked ? "secondary" : "outline"}>
-									{connection.linked ? "Linked" : "Not linked"}
-								</Badge>
-								{connection.enabled ? <Badge>Chat on</Badge> : null}
-							</div>
-							<span className="text-muted-foreground text-sm">
-								{connection.enabled
-									? "Messages can appear in VISP Native."
-									: "Chat is disabled."}
-							</span>
-						</div>
-						<div className="flex flex-wrap gap-2">
-							{!connection.linked ? (
-								<Button
-									variant="outline"
-									onClick={() => void link(connection.provider)}
-								>
-									<LinkIcon data-icon="inline-start" />
-									Link
-								</Button>
-							) : connection.needsConsent ? (
-								<Button onClick={() => void link("twitch", true)}>
-									<MessageCircleIcon data-icon="inline-start" />
-									Authorize chat
-								</Button>
-							) : connection.enabled ? (
-								<Button
-									disabled={disable.isPending}
-									variant="outline"
-									onClick={() =>
-										disable.mutate({ provider: connection.provider })
-									}
-								>
-									Disable chat
-								</Button>
-							) : (
-								<Button
-									disabled={enable.isPending}
-									onClick={() =>
-										enable.mutate({ provider: connection.provider })
-									}
-								>
-									<MessageCircleIcon data-icon="inline-start" />
-									Enable chat
-								</Button>
-							)}
-							{connection.linked ? (
-								<Button
-									disabled={linkedCount < 2 || disable.isPending}
-									variant="ghost"
-									onClick={() =>
-										void unlink(connection.provider, connection.enabled)
-									}
-								>
-									<UnlinkIcon data-icon="inline-start" />
-									Unlink
-								</Button>
-							) : null}
-						</div>
-					</div>
+					<Card key={connection.provider} padding={3} variant="muted">
+						<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
+							<VStack gap={1}>
+								<HStack gap={2} vAlign="center">
+									<Text type="label">{label}</Text>
+									<Badge
+										label={connection.linked ? "Linked" : "Not linked"}
+										variant="neutral"
+									/>
+									{connection.enabled ? (
+										<Badge label="Chat on" variant="success" />
+									) : null}
+								</HStack>
+								<Text color="secondary" type="supporting">
+									{connection.enabled
+										? "Messages can appear in VISP Native."
+										: "Chat is disabled."}
+								</Text>
+							</VStack>
+							<HStack gap={2} wrap="wrap">
+								{!connection.linked ? (
+									<Button
+										icon={<Icon color="inherit" icon={LinkIcon} size="sm" />}
+										label="Link"
+										onClick={() => void link(connection.provider)}
+									/>
+								) : connection.needsConsent ? (
+									<Button
+										icon={
+											<Icon
+												color="inherit"
+												icon={MessageCircleIcon}
+												size="sm"
+											/>
+										}
+										label="Authorize chat"
+										variant="primary"
+										onClick={() => void link("twitch", true)}
+									/>
+								) : connection.enabled ? (
+									<Button
+										isLoading={disable.isPending}
+										label="Disable chat"
+										onClick={() =>
+											disable.mutate({ provider: connection.provider })
+										}
+									/>
+								) : (
+									<Button
+										icon={
+											<Icon
+												color="inherit"
+												icon={MessageCircleIcon}
+												size="sm"
+											/>
+										}
+										isLoading={enable.isPending}
+										label="Enable chat"
+										variant="primary"
+										onClick={() =>
+											enable.mutate({ provider: connection.provider })
+										}
+									/>
+								)}
+								{connection.linked ? (
+									<Button
+										icon={<Icon color="inherit" icon={UnlinkIcon} size="sm" />}
+										isDisabled={linkedCount < 2 || disable.isPending}
+										label="Unlink"
+										variant="ghost"
+										onClick={() =>
+											void unlink(connection.provider, connection.enabled)
+										}
+									/>
+								) : null}
+							</HStack>
+						</HStack>
+					</Card>
 				);
 			})}
-			<p className="text-muted-foreground text-sm">
+			<Text color="secondary" type="supporting">
 				Disabling chat keeps the provider available for sign-in. At least one
 				login must remain linked.
-			</p>
+			</Text>
 		</AdvancedSection>
 	);
 }
@@ -623,6 +616,7 @@ function ConnectionsCard() {
 function CredentialsCard() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
 	const [bundle, setBundle] = useState<SecretBundle | null>(null);
 	const rotate = useMutation(
@@ -655,55 +649,54 @@ function CredentialsCard() {
 		<AdvancedSection
 			action={
 				configured ? (
-					<Badge
-						className="border-signal/40 bg-signal/10 text-signal"
-						variant="outline"
-					>
-						<span aria-hidden className="size-1.5 rounded-full bg-signal" />
-						Configured
-					</Badge>
+					<Badge label="Configured" variant="success" />
 				) : (
-					<Badge variant="outline">Setup required</Badge>
+					<Badge label="Setup required" variant="warning" />
 				)
 			}
 			id="obs-read"
 			tag="Advanced · Relay to OBS"
 			title="OBS read credentials"
+			value="obs-read"
 		>
-			<p className="text-muted-foreground text-sm">
+			<Text color="secondary" type="supporting">
 				These URLs let OBS receive your feeds. Publish URLs are managed per
 				device above.
-			</p>
+			</Text>
 			{bundle ? (
-				<div className="flex flex-col gap-4">
+				<VStack gap={4}>
 					<RevealedValue label="Read secret" value={bundle.revealed.read} />
 					{bundle.urls.read.map((url) => (
-						<div className="flex flex-col gap-2" key={url.slug}>
-							<span className="font-medium">Read: {url.slug}</span>
+						<VStack gap={2} key={url.slug}>
+							<Text type="label">Read: {url.slug}</Text>
 							<UrlWithFallback label="OBS URL" rtmp={url.rtmp} srt={url.srt} />
-						</div>
+						</VStack>
 					))}
-				</div>
+				</VStack>
 			) : (
-				<p className="text-muted-foreground text-sm">
+				<Text color="secondary" type="supporting">
 					{configured
 						? revealable
 							? "Reveal your read URLs anytime — one per device, including newly added ones. Rotating replaces the secret and breaks existing OBS sources."
 							: "Read credentials from before revealing was supported can only be replaced. Rotate once to make them revealable."
 						: "Generate read credentials to receive your device feeds in OBS."}
-				</p>
+				</Text>
 			)}
-			<div className="flex flex-wrap gap-2">
+			<HStack gap={2} wrap="wrap">
 				{configured && revealable ? (
-					<Button disabled={reveal.isPending} onClick={() => reveal.mutate()}>
-						<EyeIcon data-icon="inline-start" />
-						Reveal read URLs
-					</Button>
+					<Button
+						icon={<Icon color="inherit" icon={EyeIcon} size="sm" />}
+						isLoading={reveal.isPending}
+						label="Reveal read URLs"
+						variant="primary"
+						onClick={() => reveal.mutate()}
+					/>
 				) : null}
 				{configured ? (
 					<Button
-						disabled={rotate.isPending}
-						variant="outline"
+						icon={<Icon color="inherit" icon={RotateCwIcon} size="sm" />}
+						isLoading={rotate.isPending}
+						label="Rotate read"
 						onClick={() => {
 							if (
 								!revealable ||
@@ -714,32 +707,28 @@ function CredentialsCard() {
 								rotate.mutate({ kind: "read" });
 							}
 						}}
-					>
-						<RotateCwIcon data-icon="inline-start" />
-						Rotate read
-					</Button>
+					/>
 				) : (
 					<Button
-						disabled={rotate.isPending}
+						isLoading={rotate.isPending}
+						label="Generate OBS credentials"
+						variant="primary"
 						onClick={() => rotate.mutate({ kind: "read" })}
-					>
-						Generate OBS credentials
-					</Button>
+					/>
 				)}
 				{bundle?.sceneCollection ? (
-					<Button variant="secondary" onClick={downloadScene}>
-						<DownloadIcon data-icon="inline-start" />
-						Download OBS collection
-					</Button>
+					<Button
+						icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
+						label="Download OBS collection"
+						onClick={downloadScene}
+					/>
 				) : null}
-				<Link
-					className={buttonVariants({ variant: "ghost" })}
-					search={{ redo: true }}
-					to="/setup"
-				>
-					Redo setup
-				</Link>
-			</div>
+				<Button
+					label="Redo setup"
+					variant="ghost"
+					onClick={() => navigate({ to: "/setup", search: { redo: true } })}
+				/>
+			</HStack>
 		</AdvancedSection>
 	);
 }
@@ -747,30 +736,32 @@ function CredentialsCard() {
 function PathStatus({ path }: { path: PathView }) {
 	if (path.stale) {
 		return (
-			<Badge
-				className="border-caution/40 bg-caution/10 text-caution"
-				variant="outline"
-			>
-				<span aria-hidden className="size-1.5 rounded-full bg-caution" />
-				Status unknown
-			</Badge>
+			<HStack gap={1.5} vAlign="center">
+				<StatusDot label="Status unknown" variant="warning" />
+				<Text color="secondary" type="supporting">
+					Status unknown
+				</Text>
+			</HStack>
 		);
 	}
 	if (path.publishing) {
 		return (
-			<Badge
-				className="border-tally/40 bg-tally/15 text-tally"
-				variant="outline"
-			>
-				<span
-					aria-hidden
-					className="tally-pulse size-1.5 rounded-full bg-tally"
-				/>
-				Live
-			</Badge>
+			<HStack gap={1.5} vAlign="center">
+				<StatusDot isPulsing label="Live" variant="error" />
+				<Text type="supporting" weight="semibold">
+					Live
+				</Text>
+			</HStack>
 		);
 	}
-	return <Badge variant="secondary">Offline</Badge>;
+	return (
+		<HStack gap={1.5} vAlign="center">
+			<StatusDot label="Offline" variant="neutral" />
+			<Text color="secondary" type="supporting">
+				Offline
+			</Text>
+		</HStack>
+	);
 }
 
 function formatUtc(value: string) {
@@ -817,96 +808,76 @@ function PathRow({ path }: { path: PathView }) {
 		}),
 	);
 
-	const live = path.publishing && !path.stale;
-
 	return (
-		<div
-			className={`flex flex-col gap-2 border p-3 ${live ? "border-ring" : ""}`}
-		>
-			<div className="flex flex-wrap items-center gap-3">
-				<span
-					aria-hidden
-					className={`size-2 shrink-0 rounded-full ${
-						live
-							? "tally-pulse bg-tally"
-							: path.stale
-								? "bg-caution"
-								: "bg-muted-foreground/40"
-					}`}
-				/>
-				<div className="flex min-w-0 flex-1 flex-col">
-					<strong>{path.label}</strong>
-					<span className="font-mono text-muted-foreground text-xs">
+		<VStack gap={2} paddingBlock={2}>
+			<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
+				<VStack gap={0.5}>
+					<Text type="label">{path.label}</Text>
+					<Text color="secondary" type="supporting">
 						{path.publishLastConnectedAt
 							? `Last connected ${formatUtc(path.publishLastConnectedAt)}`
 							: "Never connected"}
-					</span>
-				</div>
+					</Text>
+				</VStack>
 				<PathStatus path={path} />
-			</div>
-			<details className="group">
-				<summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-muted-foreground text-sm hover:text-foreground [&::-webkit-details-marker]:hidden">
-					<ChevronDownIcon
-						aria-hidden
-						className="size-3.5 shrink-0 transition-transform group-open:rotate-180"
-					/>
-					Manage device
-				</summary>
-				<div className="flex flex-col gap-3 pt-3">
-					<p className="flex flex-wrap items-center gap-2">
-						<code className="text-muted-foreground text-xs">{path.slug}</code>
-						<Badge variant="outline">
-							{path.publishOrigin === "native"
-								? "VISP Native"
-								: path.publishOrigin === "web"
-									? "Web"
-									: "Legacy"}
-						</Badge>
-					</p>
-					<form
-						className="flex flex-wrap items-end gap-2"
-						onSubmit={(event) => {
-							event.preventDefault();
-							rename.mutate({ pathId: path.id, label });
-						}}
-					>
-						<Field className="min-w-48 flex-1">
-							<FieldLabel className="sr-only" htmlFor={`path-${path.id}`}>
-								Device name
-							</FieldLabel>
-							<Input
-								id={`path-${path.id}`}
-								maxLength={64}
-								value={label}
-								onChange={(event) => setLabel(event.target.value)}
-							/>
-						</Field>
+			</HStack>
+			<Collapsible
+				defaultIsOpen={false}
+				trigger={
+					<Text color="secondary" type="supporting">
+						Manage device
+					</Text>
+				}
+			>
+				<VStack gap={3} paddingBlock={2}>
+					<HStack gap={2} vAlign="center" wrap="wrap">
+						<Text type="code">{path.slug}</Text>
+						<Badge
+							label={
+								path.publishOrigin === "native"
+									? "VISP Native"
+									: path.publishOrigin === "web"
+										? "Web"
+										: "Legacy"
+							}
+							variant="neutral"
+						/>
+					</HStack>
+					<HStack gap={2} vAlign="end" wrap="wrap">
+						<TextInput
+							label="Device name"
+							size="sm"
+							value={label}
+							onChange={(value) => setLabel(value)}
+						/>
 						<Button
-							disabled={
+							isDisabled={
 								rename.isPending || !label.trim() || label === path.label
 							}
+							label="Save"
 							size="sm"
-							type="submit"
-						>
-							Save
-						</Button>
-					</form>
-					<div className="flex flex-wrap gap-2">
+							onClick={() => rename.mutate({ pathId: path.id, label })}
+						/>
+					</HStack>
+					<HStack gap={2} wrap="wrap">
 						{path.publishRevealable ? (
 							<Button
-								disabled={reveal.isPending}
+								icon={<Icon color="inherit" icon={EyeIcon} size="sm" />}
+								isLoading={reveal.isPending}
+								label="Reveal URL"
 								size="sm"
-								variant="outline"
 								onClick={() => reveal.mutate({ pathId: path.id })}
-							>
-								<EyeIcon data-icon="inline-start" />
-								Reveal URL
-							</Button>
+							/>
 						) : null}
 						<Button
-							disabled={rotate.isPending}
+							icon={<Icon color="inherit" icon={RotateCwIcon} size="sm" />}
+							isLoading={rotate.isPending}
+							label={
+								path.publishRevealable
+									? "Rotate this device"
+									: "Create device URL"
+							}
 							size="sm"
-							variant="outline"
 							onClick={() => {
 								const warning = path.publishRevealable
 									? `Rotate ${path.label}? Its current publish URL will stop working.`
@@ -915,14 +886,11 @@ function PathRow({ path }: { path: PathView }) {
 									rotate.mutate({ pathId: path.id });
 								}
 							}}
-						>
-							<RotateCwIcon data-icon="inline-start" />
-							{path.publishRevealable
-								? "Rotate this device"
-								: "Create device URL"}
-						</Button>
+						/>
 						<Button
-							disabled={revoke.isPending}
+							icon={<Icon color="inherit" icon={Trash2Icon} size="sm" />}
+							isLoading={revoke.isPending}
+							label="Revoke"
 							size="sm"
 							variant="destructive"
 							onClick={() => {
@@ -934,11 +902,8 @@ function PathRow({ path }: { path: PathView }) {
 									revoke.mutate({ pathId: path.id });
 								}
 							}}
-						>
-							<Trash2Icon data-icon="inline-start" />
-							Revoke
-						</Button>
-					</div>
+						/>
+					</HStack>
 					{revealed ? (
 						<UrlWithFallback
 							label="Sending URL"
@@ -946,9 +911,9 @@ function PathRow({ path }: { path: PathView }) {
 							srt={revealed.srt}
 						/>
 					) : null}
-				</div>
-			</details>
-		</div>
+				</VStack>
+			</Collapsible>
+		</VStack>
 	);
 }
 
@@ -973,102 +938,106 @@ function PublishingDevicesCard() {
 	);
 
 	return (
-		<Card className="scroll-mt-6" id="devices">
-			<CardHeader>
-				<StageTag>Stage 01 · Sources</StageTag>
-				<CardTitle>Publishing devices</CardTitle>
-				<CardDescription>
-					Every device has its own sending URL. Revealing or rotating one never
-					affects the others.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-3">
+		<Card>
+			<VStack gap={4}>
+				<VStack gap={1}>
+					<Text color="secondary" id="devices" type="supporting">
+						Stage 01 · Sources
+					</Text>
+					<Heading level={2}>Publishing devices</Heading>
+					<Text color="secondary" type="supporting">
+						Every device has its own sending URL. Revealing or rotating one
+						never affects the others.
+					</Text>
+				</VStack>
+
 				{created ? (
-					<div className="flex flex-col gap-4 border border-signal/40 bg-signal/5 p-3">
-						<div className="flex flex-col gap-2">
-							<p className="font-medium">
-								{created.path.label} — send the stream
-							</p>
-							<p className="text-muted-foreground text-sm">
-								Add this URL to the app that sends the video — your phone, a
-								friend's phone, or any streaming software.
-							</p>
-							<UrlWithFallback
-								label="Sending URL"
-								rtmp={created.urls.rtmp}
-								srt={created.urls.srt}
-							/>
-						</div>
-						<div className="flex flex-col gap-2">
-							<p className="font-medium">{created.path.label} — watch in OBS</p>
-							{created.read ? (
-								<>
-									<p className="text-muted-foreground text-sm">
-										Add this URL as a Media Source in OBS to see the feed.
-									</p>
-									<UrlWithFallback
-										label="OBS URL"
-										rtmp={created.read.rtmp}
-										srt={created.read.srt}
-									/>
-								</>
-							) : (
-								<p className="text-muted-foreground text-sm">
-									To receive this feed in OBS, rotate your{" "}
-									<a className="underline" href="#obs-read">
-										OBS read credentials
-									</a>{" "}
-									once — after that, read URLs appear here automatically.
-								</p>
-							)}
-						</div>
-						<Button
-							className="self-start"
-							size="sm"
-							variant="ghost"
-							onClick={() => setCreated(null)}
-						>
-							Done, hide URLs
-						</Button>
-					</div>
+					<Banner
+						defaultIsExpanded
+						status="success"
+						title={`${created.path.label} is ready`}
+					>
+						<VStack gap={4}>
+							<VStack gap={2}>
+								<Text type="label">Send the stream</Text>
+								<Text color="secondary" type="supporting">
+									Add this URL to the app that sends the video — your phone, a
+									friend's phone, or any streaming software.
+								</Text>
+								<UrlWithFallback
+									label="Sending URL"
+									rtmp={created.urls.rtmp}
+									srt={created.urls.srt}
+								/>
+							</VStack>
+							<VStack gap={2}>
+								<Text type="label">Watch in OBS</Text>
+								{created.read ? (
+									<>
+										<Text color="secondary" type="supporting">
+											Add this URL as a Media Source in OBS to see the feed.
+										</Text>
+										<UrlWithFallback
+											label="OBS URL"
+											rtmp={created.read.rtmp}
+											srt={created.read.srt}
+										/>
+									</>
+								) : (
+									<Text color="secondary" type="supporting">
+										To receive this feed in OBS, rotate your{" "}
+										<a href="#obs-read">OBS read credentials</a> once — after
+										that, read URLs appear here automatically.
+									</Text>
+								)}
+							</VStack>
+							<HStack>
+								<Button
+									label="Done, hide URLs"
+									size="sm"
+									variant="ghost"
+									onClick={() => setCreated(null)}
+								/>
+							</HStack>
+						</VStack>
+					</Banner>
 				) : null}
+
 				{pathsQuery.data?.length ? (
-					pathsQuery.data.map((path) => <PathRow key={path.id} path={path} />)
+					<VStack gap={0}>
+						{pathsQuery.data.map((path, index) => (
+							<Fragment key={path.id}>
+								{index > 0 ? <Divider /> : null}
+								<PathRow path={path} />
+							</Fragment>
+						))}
+					</VStack>
 				) : (
-					<Empty>
-						<EmptyHeader>
-							<EmptyTitle>No publishing devices</EmptyTitle>
-							<EmptyDescription>
-								Create a device for your first video source.
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
+					<EmptyState
+						description="Create a device for your first video source."
+						isCompact
+						title="No publishing devices"
+					/>
 				)}
-			</CardContent>
-			<CardFooter>
-				<form
-					className="flex w-full flex-wrap items-end gap-2"
-					onSubmit={(event) => {
-						event.preventDefault();
-						create.mutate({ label });
-					}}
-				>
-					<Field className="min-w-48 flex-1">
-						<FieldLabel htmlFor="new-path-label">Device name</FieldLabel>
-						<Input
-							id="new-path-label"
-							maxLength={64}
-							placeholder="Main phone"
-							value={label}
-							onChange={(event) => setLabel(event.target.value)}
-						/>
-					</Field>
-					<Button disabled={create.isPending || !label.trim()} type="submit">
-						<PlusIcon data-icon="inline-start" />
-						Add device
-					</Button>
-				</form>
-			</CardFooter>
+
+				<Divider />
+
+				<HStack gap={2} vAlign="end" wrap="wrap">
+					<TextInput
+						label="Device name"
+						placeholder="Main phone"
+						value={label}
+						onChange={(value) => setLabel(value)}
+					/>
+					<Button
+						icon={<Icon color="inherit" icon={PlusIcon} size="sm" />}
+						isDisabled={create.isPending || !label.trim()}
+						label="Add device"
+						variant="primary"
+						onClick={() => create.mutate({ label })}
+					/>
+				</HStack>
+			</VStack>
 		</Card>
 	);
 }
@@ -1076,7 +1045,7 @@ function PublishingDevicesCard() {
 function GuidanceCard() {
 	const trpc = useTRPC();
 	const [profile, setProfile] = useState<"wired" | "wifi" | "cellular">("wifi");
-	const [rtt, setRtt] = useState("");
+	const [rtt, setRtt] = useState<number | null>(null);
 	const [measuring, setMeasuring] = useState(false);
 	const [guidance, setGuidance] = useState<Guidance | null>(null);
 	const submit = useMutation(
@@ -1090,7 +1059,7 @@ function GuidanceCard() {
 		setMeasuring(true);
 		try {
 			const measured = await probeRelayRtt(env.VITE_RELAY_PING_URL);
-			setRtt(String(measured));
+			setRtt(measured);
 			await submit.mutateAsync({
 				rttMs: measured,
 				profile,
@@ -1106,74 +1075,72 @@ function GuidanceCard() {
 	};
 
 	return (
-		<AdvancedSection tag="Advanced · Tuning" title="Connection guidance">
-			<p className="text-muted-foreground text-sm">
+		<AdvancedSection
+			tag="Advanced · Tuning"
+			title="Connection guidance"
+			value="tuning"
+		>
+			<Text color="secondary" type="supporting">
 				The browser estimate includes HTTPS overhead and deliberately rounds
 				upward.
-			</p>
-			<FieldGroup>
-				<Field>
-					<FieldLabel htmlFor="network-profile">Network profile</FieldLabel>
-					<NativeSelect
-						className="w-full"
-						id="network-profile"
-						value={profile}
-						onChange={(event) =>
-							setProfile(event.target.value as "wired" | "wifi" | "cellular")
-						}
-					>
-						<NativeSelectOption value="wired">Wired</NativeSelectOption>
-						<NativeSelectOption value="wifi">Wi-Fi</NativeSelectOption>
-						<NativeSelectOption value="cellular">Cellular</NativeSelectOption>
-					</NativeSelect>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="rtt-ms">Estimated RTT (ms)</FieldLabel>
-					<Input
-						id="rtt-ms"
-						inputMode="numeric"
-						min={1}
-						max={10000}
-						type="number"
-						value={rtt}
-						onChange={(event) => setRtt(event.target.value)}
-					/>
-					<FieldDescription>
-						Use the relay probe or enter a measured value.
-					</FieldDescription>
-				</Field>
-			</FieldGroup>
+			</Text>
+			<Selector
+				label="Network profile"
+				options={[
+					{ value: "wired", label: "Wired" },
+					{ value: "wifi", label: "Wi-Fi" },
+					{ value: "cellular", label: "Cellular" },
+				]}
+				value={profile}
+				onChange={(value) => setProfile(value as "wired" | "wifi" | "cellular")}
+			/>
+			<NumberInput
+				description="Use the relay probe or enter a measured value."
+				label="Estimated RTT (ms)"
+				value={rtt}
+				onChange={(value) => setRtt(value)}
+			/>
 			{guidance ? (
-				<div className="flex flex-col gap-2 border p-3">
-					<strong>Recommended SRT latency: {guidance.ms} ms</strong>
-					<span>OBS/FFmpeg query value: {guidance.micros} µs</span>
-					<span>Larix setting: {guidance.larixMs} ms</span>
-					<span>
-						Suggested 1080p30 bitrate: {guidance.bitrateKbps["1080p30"]} kbps
-					</span>
-					{guidance.note ? (
-						<p className="text-muted-foreground">{guidance.note}</p>
-					) : null}
-				</div>
+				<Card padding={3} variant="muted">
+					<VStack gap={1}>
+						<Text type="label">Recommended SRT latency: {guidance.ms} ms</Text>
+						<Text type="supporting">
+							OBS/FFmpeg query value: {guidance.micros} µs
+						</Text>
+						<Text type="supporting">Larix setting: {guidance.larixMs} ms</Text>
+						<Text type="supporting">
+							Suggested 1080p30 bitrate: {guidance.bitrateKbps["1080p30"]} kbps
+						</Text>
+						{guidance.note ? (
+							<Text color="secondary" type="supporting">
+								{guidance.note}
+							</Text>
+						) : null}
+					</VStack>
+				</Card>
 			) : null}
-			<div className="flex flex-wrap gap-2">
-				<Button disabled={measuring || submit.isPending} onClick={measure}>
-					{measuring ? "Measuring..." : "Measure relay RTT"}
-				</Button>
+			<HStack gap={2} wrap="wrap">
 				<Button
-					disabled={
+					isLoading={measuring || submit.isPending}
+					label="Measure relay RTT"
+					variant="primary"
+					onClick={measure}
+				/>
+				<Button
+					isDisabled={
 						submit.isPending ||
-						!Number.isInteger(Number(rtt)) ||
-						Number(rtt) < 1
+						rtt === null ||
+						!Number.isInteger(rtt) ||
+						rtt < 1
 					}
-					variant="outline"
-					onClick={() =>
-						submit.mutate({ rttMs: Number(rtt), profile, method: "manual" })
-					}
-				>
-					Use manual RTT
-				</Button>
-			</div>
+					label="Use manual RTT"
+					onClick={() => {
+						if (rtt !== null) {
+							submit.mutate({ rttMs: rtt, profile, method: "manual" });
+						}
+					}}
+				/>
+			</HStack>
 		</AdvancedSection>
 	);
 }
@@ -1183,32 +1150,19 @@ function SetupCard() {
 		<AdvancedSection
 			tag="Advanced · Reference"
 			title="OBS and scene switcher setup"
+			value="reference"
 		>
-			<p className="text-muted-foreground text-sm">
+			<Text color="secondary" type="supporting">
 				Import the generated scene collection, then configure Advanced Scene
 				Switcher manually.
-			</p>
-			<ol className="list-decimal pl-5">
-				<li>
-					Use the Media condition, not Source, to detect whether bytes are
-					arriving.
-				</li>
-				<li>
-					Ensure every condition and action toggle is enabled (blue, not grey).
-				</li>
-				<li>
-					Keep 2 second and 3 second debounces to avoid scene flapping during
-					reconnects.
-				</li>
-				<li>
-					Set a 2 second keyframe interval; enable adaptive bitrate in Larix on
-					cellular.
-				</li>
-				<li>
-					Only one publisher can own a path at once; RTMP is the fallback when
-					UDP is blocked.
-				</li>
-			</ol>
+			</Text>
+			<List listStyle="decimal">
+				<ListItem label="Use the Media condition, not Source, to detect whether bytes are arriving." />
+				<ListItem label="Ensure every condition and action toggle is enabled (blue, not grey)." />
+				<ListItem label="Keep 2 second and 3 second debounces to avoid scene flapping during reconnects." />
+				<ListItem label="Set a 2 second keyframe interval; enable adaptive bitrate in Larix on cellular." />
+				<ListItem label="Only one publisher can own a path at once; RTMP is the fallback when UDP is blocked." />
+			</List>
 		</AdvancedSection>
 	);
 }

@@ -1,3 +1,4 @@
+process.env.AI_GATEWAY_API_KEY ??= "test-ai-gateway-key";
 process.env.DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
 	process.env.DATABASE_URL ??

@@ -38,3 +38,6 @@ export const authClient = createAuthClient({
 			: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
 	plugins: [genericOAuthClient()],
 });
+
+export const authRedirectURL = (path: string) =>
+	new URL(path, window.location.origin).toString();

@@ -2,14 +2,15 @@
 set -eu
 
 compose_file="compose.test.yml"
+compose_project="visp-test"
 database_url="postgresql://visp:visp@127.0.0.1:55432/visp_test"
 
 cleanup() {
-	docker compose -f "$compose_file" down --volumes
+	docker compose --project-name "$compose_project" -f "$compose_file" down --volumes
 }
 trap cleanup EXIT INT TERM
 
-docker compose -f "$compose_file" up --detach --wait
+docker compose --project-name "$compose_project" -f "$compose_file" up --detach --wait
 
 (
 	cd packages/db

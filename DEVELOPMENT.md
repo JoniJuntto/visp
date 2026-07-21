@@ -7,8 +7,8 @@ and database. The OBS plugin has additional platform toolchains documented in
 ## Prerequisites
 
 - Bun 1.3.14 or newer (the pinned version is in `package.json`)
-- PostgreSQL 17 or newer
-- Docker with Compose for the integration suite
+- Node.js 24 or newer (required by Portless)
+- Docker with Compose
 - A Twitch application for Twitch login
 - A Kick application to exercise Kick login, chat, and metadata
 - A physical phone or development-build-compatible simulator for the native app
@@ -19,45 +19,43 @@ Install all workspace dependencies from the repository root:
 bun install
 ```
 
-## Local PostgreSQL
+## Local services
 
-The example server URL expects a database named `visp` on port 5432 with the
-username and password `visp`. Use an existing PostgreSQL installation or start a
-local container:
+The normal development command manages PostgreSQL 18, MinIO, MediaMTX, and the
+local relay gateway:
 
 ```bash
-docker run --name visp-postgres \
-  --env POSTGRES_USER=visp \
-  --env POSTGRES_PASSWORD=visp \
-  --env POSTGRES_DB=visp \
-  --publish 5432:5432 \
-  --detach postgres:17-alpine
+bun run dev:local
 ```
 
-On later runs, restart that container with `docker start visp-postgres`.
+Compose data volumes persist across restarts. Ctrl+C stops the API and portal;
+`bun run dev:local:down` stops the containers without deleting their data.
 
 ## Environment files
 
-Create local files from the tracked examples:
+`bun run dev:local` creates missing server and web env files from the tracked
+examples, generates missing local secrets, and reports every invalid value. The
+native env remains explicit because it needs a device-reachable address:
 
 ```bash
-cp apps/server/.env.example apps/server/.env
-cp apps/web/.env.example apps/web/.env
 cp apps/native/.env.example apps/native/.env.local
 ```
 
-All blank values in `apps/server/.env` must be filled because server environment
-validation runs at startup. Important groups are:
+The launcher supplies local service values at runtime. Blank Twitch or Kick
+credentials are reported and only affect those provider flows. Direct server
+commands still require every schema-required value. Important groups are:
 
 - `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `CORS_ORIGIN`
   configure the database and browser authentication boundary.
 - `TWITCH_*` and `KICK_*` configure provider OAuth and APIs. Development values
   may be placeholders only when the matching provider flow is not exercised.
+- `AI_GATEWAY_API_KEY` authenticates the server-side Seppo setup assistant with
+  Vercel AI Gateway. Create the key in Vercel and never expose it as a `VITE_*`
+  variable.
 - `HOOK_SECRET`, `MEDIAMTX_API_URL`, `RELAY_HOST`, and `RELAY_PING_URL` connect
-  the app to a relay. The checked-in example addresses are safe placeholders;
-  relay-dependent features will fail until they point to a running relay.
-- `S3_*` configures private snapshot storage. Non-empty placeholders let the
-  server boot, but snapshot operations require a compatible S3 service.
+  the app to the local MediaMTX and Portless relay domains.
+- `S3_*` configures private snapshot storage. The launcher points these values
+  at its MinIO service.
 - `PUBLISH_URL_ENCRYPTION_KEY` must be exactly 32 random bytes encoded as
   canonical base64. Generate it with:
 
@@ -77,8 +75,8 @@ LAN or tunnel address instead.
 Register these local callback URLs with the providers you use:
 
 ```text
-Twitch: http://127.0.0.1:3000/api/auth/callback/twitch
-Kick:   http://127.0.0.1:3000/api/auth/oauth2/callback/kick
+Twitch: https://api.visp.localhost/api/auth/callback/twitch
+Kick:   https://api.visp.localhost/api/auth/oauth2/callback/kick
 ```
 
 ## Database workflow
@@ -108,12 +106,15 @@ Drizzle reads `DATABASE_URL` from `apps/server/.env`.
 
 ## Running the project
 
-For normal portal/API work, use two terminals:
+For normal portal/API work, use the one-stop launcher:
 
 | Process | Command | Address |
 | --- | --- | --- |
-| API | `bun run dev:server` | `http://127.0.0.1:3000` |
-| Portal | `bun run dev:web` | `http://127.0.0.1:3001` |
+| Complete local stack | `bun run dev:local` | `https://visp.localhost` |
+| API | managed by the launcher | `https://api.visp.localhost` |
+| Relay | managed by the launcher | `https://relay.visp.localhost` |
+| MinIO console | managed by the launcher | `https://minio.visp.localhost` |
+| PostgreSQL | managed by the launcher | `127.0.0.1:54320` |
 | Documentation | `bun run --cwd apps/fumadocs dev` | `http://localhost:4000` |
 | Expo dev server | `bun run --cwd apps/native dev` | shown by Expo |
 
@@ -187,13 +188,12 @@ when introducing a new credential-shaped field.
 
 - **The server exits during import:** a required value in `apps/server/.env` is
   blank or invalid. The error names the rejected variable.
-- **The portal cannot authenticate:** confirm the API is on port 3000,
-  `VITE_SERVER_URL` matches it, and `CORS_ORIGIN` is the exact portal origin.
+- **The portal cannot authenticate:** confirm `https://api.visp.localhost` is
+  available and `CORS_ORIGIN` is exactly `https://visp.localhost`.
 - **A phone cannot connect:** `localhost` and `127.0.0.1` refer to the phone.
   Use an address reachable from the phone and allow the API port through the
   host firewall.
-- **RTT or relay actions fail:** the example relay URLs are placeholders. Point
-  them at a running MediaMTX/Caddy relay or ignore those features during UI-only
-  work.
+- **RTT or relay actions fail:** run `bun run dev:local`, then check
+  `docker compose ps` and `docker compose logs mediamtx gateway`.
 - **Integration tests cannot bind port 55432:** stop the process already using
   that port, then rerun the suite.

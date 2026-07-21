@@ -1,0 +1,16 @@
+http://relay.visp.localhost {
+	@ping path /ping
+	header @ping Access-Control-Allow-Origin "https://visp.localhost"
+	header @ping Access-Control-Allow-Methods "GET, OPTIONS"
+	header @ping Cache-Control "no-store"
+	respond @ping 204
+	reverse_proxy mediamtx:8889
+}
+
+http://s3.visp.localhost {
+	reverse_proxy minio:9000
+}
+
+http://minio.visp.localhost {
+	reverse_proxy minio:9001
+}
