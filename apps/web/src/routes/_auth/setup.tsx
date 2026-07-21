@@ -25,7 +25,9 @@ import {
 	downloadSceneCollection,
 	RevealedValue,
 } from "@/components/credential-reveal";
+import { DocsHelpLink } from "@/components/docs-help-link";
 import { ObsPluginPromo } from "@/components/obs-plugin-promo";
+import { PageHeader } from "@/components/page-header";
 import {
 	type SeppoClientToolCall,
 	SeppoWidget,
@@ -35,6 +37,7 @@ import {
 	ADVANCED_SETUP_DEFAULTS,
 	getAdvancedSetupAction,
 } from "@/lib/advanced-setup";
+import { docs } from "@/lib/docs";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
 import { useTRPC } from "@/utils/trpc";
@@ -321,13 +324,22 @@ function BackButton({ onBack }: { onBack: () => void }) {
 function StepIntro({
 	title,
 	description,
+	docsHref,
+	docsLabel,
 }: {
 	title: string;
 	description: string;
+	docsHref?: string;
+	docsLabel?: string;
 }) {
 	return (
 		<VStack gap={1}>
-			<Heading level={2}>{title}</Heading>
+			<HStack gap={1.5} vAlign="center">
+				<Heading level={2}>{title}</Heading>
+				{docsHref && docsLabel ? (
+					<DocsHelpLink href={docsHref} label={docsLabel} />
+				) : null}
+			</HStack>
 			<Text color="secondary">{description}</Text>
 		</VStack>
 	);
@@ -712,36 +724,35 @@ function SetupWizard() {
 					padding={4}
 					width="100%"
 				>
-					<HStack gap={4} hAlign="between" vAlign="start" wrap="wrap">
-						<VStack gap={1} maxWidth={640}>
-							<Text color="secondary" type="supporting">
-								{step === "redo"
-									? "Redo setup"
-									: `Step ${questionNumber} of ${questionTotal}`}
-							</Text>
-							<Heading level={1}>Let's get you streaming</Heading>
-							<Text color="secondary">
-								Real-world questions, one device to start, then your stream
-								links. The VISP mobile app links automatically.
-							</Text>
-						</VStack>
-						<VStack gap={1} hAlign="end">
-							<SegmentedControl
-								isDisabled={openingAdvanced || !status.data}
-								label="Setup mode"
-								value={openingAdvanced ? "advanced" : "simple"}
-								onChange={(value) => setSetupMode(value === "advanced")}
-							>
-								<SegmentedControlItem label="Simple" value="simple" />
-								<SegmentedControlItem label="Advanced" value="advanced" />
-							</SegmentedControl>
-							{openingAdvanced ? (
-								<Text color="secondary" type="supporting">
-									Opening advanced dashboard…
-								</Text>
-							) : null}
-						</VStack>
-					</HStack>
+					<PageHeader
+						actions={
+							<VStack gap={1} hAlign="end">
+								<SegmentedControl
+									isDisabled={openingAdvanced || !status.data}
+									label="Setup mode"
+									value={openingAdvanced ? "advanced" : "simple"}
+									onChange={(value) => setSetupMode(value === "advanced")}
+								>
+									<SegmentedControlItem label="Simple" value="simple" />
+									<SegmentedControlItem label="Advanced" value="advanced" />
+								</SegmentedControl>
+								{openingAdvanced ? (
+									<Text color="secondary" type="supporting">
+										Opening advanced dashboard…
+									</Text>
+								) : null}
+							</VStack>
+						}
+						eyebrow={
+							step === "redo"
+								? "Redo setup"
+								: `Step ${String(questionNumber).padStart(2, "0")} / ${String(
+										questionTotal,
+									).padStart(2, "0")}`
+						}
+						subtitle="Real-world questions, one device to start, then your stream links. The VISP mobile app links automatically."
+						title="Let's get you streaming"
+					/>
 
 					<VStack gap={4}>
 						{step === "redo" ? (
@@ -1011,6 +1022,8 @@ function CredentialsReady({
 				<VStack gap={3}>
 					<StepIntro
 						description="The VISP app creates the publish link automatically after you sign in — no paste required."
+						docsHref={docs.phoneApp}
+						docsLabel="See phone and browser app docs"
 						title="On your phone"
 					/>
 					<NumberedSteps
@@ -1038,6 +1051,8 @@ function CredentialsReady({
 				<VStack gap={3}>
 					<StepIntro
 						description="Open the browser publisher, sign in, and start the camera — no native install."
+						docsHref={docs.phoneApp}
+						docsLabel="See phone and browser app docs"
 						title="In your browser"
 					/>
 					<NumberedSteps
@@ -1064,16 +1079,25 @@ function CredentialsReady({
 								? "You can paste a publish URL into OBS Settings → Stream, or let the VISP OBS plugin create an OBS publishing device after you sign in."
 								: `Paste this link into ${manual.name}. Publishing can be streaming software, a phone app, or any SRT-capable device.`
 						}
+						docsHref={docs.videoSource}
+						docsLabel="See how to add this to your video source"
 						title="On your publishing device"
 					/>
 					<NumberedSteps steps={manual.steps} />
-					<RevealedValue label="Publish link" value={primary} />
+					<RevealedValue
+						docsHref={docs.videoSource}
+						docsLabel="See how to add this to your video source"
+						label="Publish link"
+						value={primary}
+					/>
 				</VStack>
 			) : null}
 
 			<VStack gap={3}>
 				<StepIntro
 					description={`Install the VISP OBS plugin to pull feeds into OBS and go live to ${destinationLabel} without hand-pasting Media Source URLs.`}
+					docsHref={docs.obsRemoteControl}
+					docsLabel="See how to pair the OBS plugin"
 					title="On your streaming PC (OBS)"
 				/>
 				<ObsPluginPromo
@@ -1100,7 +1124,12 @@ function CredentialsReady({
 									]}
 								/>
 								{readUrl ? (
-									<RevealedValue label="Media source URL" value={readUrl.srt} />
+									<RevealedValue
+										docsHref={docs.getStarted}
+										docsLabel="See how to import this into OBS"
+										label="Media source URL"
+										value={readUrl.srt}
+									/>
 								) : null}
 							</VStack>
 						</Card>

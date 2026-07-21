@@ -26,9 +26,9 @@
 
 /*
  * VISP visual identity: "signal chain, not SaaS".
- * Lifted cool charcoal, bone primary, color reserved for signal state
- * (tally red = live, amber = unknown, green = configured), SMPTE bars
- * as the brand mark, rack-label condensed caps for display type.
+ * Deep control-room black (not mid charcoal), bone primary, color reserved
+ * for signal state (tally red = live, amber = unknown, green = configured),
+ * SMPTE bars as the brand mark, rack-label condensed caps for display type.
  */
 
 :root {
@@ -54,24 +54,38 @@
 }
 
 .dark {
-	--background: oklch(0.17 0.011 255);
+	--background: oklch(0.1 0.012 255);
 	--foreground: oklch(0.95 0.004 250);
-	--card: oklch(0.21 0.012 255);
+	--card: oklch(0.175 0.013 255);
 	--card-foreground: oklch(0.95 0.004 250);
-	--popover: oklch(0.21 0.012 255);
+	--popover: oklch(0.175 0.013 255);
 	--popover-foreground: oklch(0.95 0.004 250);
 	--primary: oklch(0.92 0.005 250);
-	--primary-foreground: oklch(0.19 0.011 255);
-	--secondary: oklch(0.27 0.013 255);
+	--primary-foreground: oklch(0.12 0.012 255);
+	--secondary: oklch(0.2 0.014 255);
 	--secondary-foreground: oklch(0.95 0.004 250);
-	--muted: oklch(0.25 0.012 255);
+	--muted: oklch(0.16 0.013 255);
 	--muted-foreground: oklch(0.7 0.014 252);
-	--accent: oklch(0.29 0.02 235);
+	--accent: oklch(0.2 0.022 235);
 	--accent-foreground: oklch(0.95 0.004 250);
 	--destructive: oklch(0.63 0.21 27);
 	--border: oklch(1 0 0 / 12%);
 	--input: oklch(1 0 0 / 16%);
 	--ring: oklch(0.72 0.11 210);
+}
+
+/*
+ * Astryx Card/body tokens default to #1b1b1b in dark — visibly lighter than
+ * our desk. Pull them down so dashboard cards sit on the same deep plane.
+ * Unlayered so it wins over @layer astryx-theme.
+ */
+html[data-theme="dark"] [data-astryx-theme="neutral"],
+html[data-theme="dark"][data-astryx-theme="neutral"] {
+	--color-background-body: oklch(0.1 0.012 255);
+	--color-background-card: oklch(0.175 0.013 255);
+	--color-background-popover: oklch(0.175 0.013 255);
+	--color-background-muted: oklch(0.195 0.013 255);
+	--color-background-surface: oklch(0.21 0.014 255);
 }
 
 @theme inline {
@@ -118,41 +132,68 @@
 	}
 }
 
-/* Landing hero: packets flowing phone → studio → platforms */
-.flow-line {
-	stroke-dasharray: 1 16;
-	animation: flow 1.1s linear infinite;
+/* Landing signal-chain schematic: one tally packet rides the patch line. */
+.chain-packet {
+	offset-path: path("M 24 40 L 976 40");
+	offset-distance: 50%;
+	offset-rotate: 0deg;
+	animation: chain-travel 4s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
-@keyframes flow {
-	to {
-		stroke-dashoffset: -17;
+@keyframes chain-travel {
+	0% {
+		offset-distance: 0%;
+	}
+	85%,
+	100% {
+		offset-distance: 100%;
 	}
 }
 
-.radio-arc {
-	opacity: 0;
-	animation: radio 2.1s ease-out infinite;
+/* Hero entrance: a single, quiet lift on load. */
+.lander-rise {
+	animation: lander-rise 0.6s ease-out both;
 }
 
-@keyframes radio {
-	20% {
-		opacity: 0.9;
-	}
-	70% {
+@keyframes lander-rise {
+	from {
 		opacity: 0;
+		transform: translateY(8px);
 	}
+}
+
+/* App chrome: deep base + a faint cool wash so the desk isn't flat gray. */
+.app-shell {
+	background-color: var(--background);
+	background-image: radial-gradient(
+		120% 80% at 50% -10%,
+		oklch(0.18 0.03 240 / 45%),
+		transparent 55%
+	);
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.smpte-bars,
 	.tally-pulse,
-	.flow-line,
-	.radio-arc {
+	.chain-packet,
+	.lander-rise {
 		animation: none;
 	}
+}
 
-	.radio-arc {
-		opacity: 0.5;
-	}
+/*
+ * Astryx "neutral" surface reskin. The atomic class .x17x4s8c
+ * (background: var(--color-neutral)) backs secondary Buttons and the
+ * SegmentedControl track — the flat gray boxes that clash with the hairline
+ * language. Swap the fill for a transparent, hairline-outlined surface.
+ * Unlayered, so it wins over astryx's layer(components) rule with no
+ * specificity fight.
+ * ponytail: keyed to astryx's hashed class — re-check after @astryxdesign bumps.
+ */
+.x17x4s8c {
+	background-color: transparent;
+	box-shadow: inset 0 0 0 1px var(--border);
+}
+.x17x4s8c:hover {
+	background-color: color-mix(in oklab, var(--foreground) 7%, transparent);
 }

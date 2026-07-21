@@ -23,7 +23,8 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
-import { Heading, Text } from "@astryxdesign/core/Text";
+import { Text } from "@astryxdesign/core/Text";
+import { MeterMark } from "@/components/meter-mark";
 import {
 	DefaultChatTransport,
 	lastAssistantMessageIsCompleteWithToolCalls,
@@ -183,13 +184,16 @@ export function SeppoWidget({
 					inert={!open ? true : undefined}
 					role="dialog"
 				>
-					<div aria-hidden className="smpte-bars h-1 shrink-0" />
 					<div className="flex items-start justify-between gap-3 border-border border-b px-4 py-3">
-						<VStack gap={0}>
+						<VStack gap={1}>
 							<HStack gap={2} vAlign="center">
-								<Heading id={`seppo-${context}-title`} level={3}>
+								<MeterMark className="h-3.5" />
+								<span
+									className="font-display font-semibold text-lg uppercase leading-none tracking-[0.18em]"
+									id={`seppo-${context}-title`}
+								>
 									Seppo
-								</Heading>
+								</span>
 								<StatusDot
 									isPulsing={isPending}
 									label={isPending ? "Seppo is responding" : "Seppo is online"}
@@ -375,7 +379,7 @@ export function SeppoWidget({
 					aria-expanded={open}
 					aria-label={open ? "Close Seppo chat" : "Open Seppo chat"}
 					className={cn(
-						"flex size-14 items-center justify-center rounded-full border border-border bg-primary text-primary-foreground shadow-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"flex size-14 items-center justify-center rounded-[var(--radius)] border border-border bg-primary text-primary-foreground shadow-md transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						open && "bg-secondary text-secondary-foreground",
 					)}
 					type="button"

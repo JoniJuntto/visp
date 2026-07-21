@@ -1,6 +1,7 @@
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
+import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
@@ -17,5 +18,11 @@ export default defineConfig({
 		// Node ESM can't resolve when externalized; bundle it instead.
 		noExternal: ["@astryxdesign/theme-neutral"],
 	},
-	plugins: [tailwindcss(), tanstackStart(), viteReact(), nitro()],
+	plugins: [
+		tailwindcss(),
+		tanstackStart(),
+		viteReact(),
+		babel({ presets: [reactCompilerPreset()] }),
+		nitro(),
+	],
 });

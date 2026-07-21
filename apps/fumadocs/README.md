@@ -12,7 +12,8 @@ bun install
 bun run --cwd apps/fumadocs dev
 ```
 
-Development runs on <http://localhost:4000>. Build and preview with:
+With `bun run dev:local`, docs is available at <https://docs.visp.localhost>.
+Standalone `dev` uses the same portless hostname. Build and preview with:
 
 ```bash
 bun run --cwd apps/fumadocs build

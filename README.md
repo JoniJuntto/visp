@@ -32,11 +32,12 @@ bun run dev:local
 
 The launcher creates missing env files, generates local secrets, validates all
 values, starts PostgreSQL 18, MinIO, MediaMTX, and Caddy through Compose, applies
-migrations, and starts the API and portal. Missing Twitch or Kick credentials
-are reported without preventing unrelated local work.
+migrations, and starts the API, portal, and docs. Missing Twitch or Kick
+credentials are reported without preventing unrelated local work.
 
 Open the portal at <https://visp.localhost>, the API at
-<https://api.visp.localhost>, and MinIO at <https://minio.visp.localhost>.
+<https://api.visp.localhost>, docs at <https://docs.visp.localhost>, and MinIO
+at <https://minio.visp.localhost>.
 Stop the application with Ctrl+C; infrastructure stays available for quick
 restarts. Run `bun run dev:local:down` to stop it. See
 [DEVELOPMENT.md](DEVELOPMENT.md) for environment variables, native development,

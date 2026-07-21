@@ -5,6 +5,8 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { List, ListItem } from "@astryxdesign/core/List";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { DownloadIcon, ExternalLinkIcon } from "lucide-react";
+import { DocsHelpLink } from "@/components/docs-help-link";
+import { docs } from "@/lib/docs";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
 
@@ -15,8 +17,6 @@ export function ObsPluginPromo({
 	release: ObsPluginRelease | null;
 	destinationLabel: string;
 }) {
-	const docsUrl = `${legalEntity.docsUrl}/docs/obs-remote-control`;
-
 	return (
 		<Card>
 			<VStack gap={3}>
@@ -24,7 +24,13 @@ export function ObsPluginPromo({
 					<Text color="secondary" type="supporting">
 						Recommended
 					</Text>
-					<Heading level={3}>VISP OBS plugin</Heading>
+					<HStack gap={1.5} vAlign="center">
+						<Heading level={3}>VISP OBS plugin</Heading>
+						<DocsHelpLink
+							href={docs.obsRemoteControl}
+							label="See how to pair the OBS plugin"
+						/>
+					</HStack>
 					<Text color="secondary" type="supporting">
 						Sign in from OBS in your browser, see your publishing devices, add a
 						Media Source to the current scene in one click, and start/stop going
@@ -64,7 +70,9 @@ export function ObsPluginPromo({
 						icon={<Icon color="inherit" icon={ExternalLinkIcon} size="sm" />}
 						label="Plugin docs"
 						variant="secondary"
-						onClick={() => window.open(docsUrl, "_blank", "noreferrer")}
+						onClick={() =>
+							window.open(docs.obsRemoteControl, "_blank", "noreferrer")
+						}
 					/>
 					<Button
 						icon={<Icon color="inherit" icon={ExternalLinkIcon} size="sm" />}
