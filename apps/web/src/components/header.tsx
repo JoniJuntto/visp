@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
+import { MeterMark } from "./meter-mark";
 import UserMenu from "./user-menu";
 
 export default function Header() {
@@ -7,11 +8,11 @@ export default function Header() {
 		<header className="border-b">
 			<div className="flex flex-row items-center justify-between px-4 py-3">
 				<nav className="flex items-center gap-6 text-sm">
-					<Link to="/" className="flex flex-col gap-1">
+					<Link to="/" className="flex items-center gap-2.5">
 						<span className="font-bold font-display text-base uppercase leading-none tracking-[0.3em]">
 							VISP
 						</span>
-						<span aria-hidden className="smpte-bars h-0.5" />
+						<MeterMark />
 					</Link>
 					<Link
 						to="/dashboard"

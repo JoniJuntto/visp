@@ -1,0 +1,51 @@
+---
+title: Add a video source
+description: Paste your device's sending URL into the phone app or software that films.
+icon: Camera
+---
+
+Every publishing device on your dashboard has a **sending URL**. Paste it into
+the app that films — that app becomes the video source, and VISP relays its
+feed into OBS. The URL contains that device's password, so keep it private.
+
+Using the **VISP phone app** or **browser publisher**? You don't need this
+page — they link the device automatically after you sign in.
+
+## Copy the URL
+
+1. Open the [dashboard](https://visp-stream.com/dashboard) and find your
+   device under **Video sources**.
+2. Choose **Copy** next to **Add this to video source**.
+
+## Paste it into your app
+
+### OBS Studio (as the sender)
+
+1. On the computer that films, open **Settings → Stream**.
+2. Set **Service** to **Custom...** and paste the URL into **Server**.
+3. Leave **Stream Key** empty and click **OK**, then **Start Streaming**.
+
+### Larix Broadcaster
+
+1. Go to **Settings → Connections → New connection**.
+2. Paste the URL into the **URL** field and tap **Save**.
+3. On mobile data, turn on adaptive bitrate so the stream stays smooth when
+   the signal dips.
+
+### Moblin
+
+1. Go to **Settings → Streams → Create stream**.
+2. Paste the URL as the stream URL and save.
+
+### Other apps
+
+In your app's stream settings, choose **Custom** or **Custom RTMP** as the
+service and paste the URL as the server. If your app doesn't accept an SRT
+URL, switch the dashboard to **Advanced** mode to reveal the RTMP fallback
+URL for the device.
+
+## Check it worked
+
+The device row on the dashboard shows **Live** as soon as VISP receives the
+feed. For latency tuning and automatic fallback scenes, see
+[Encoders and fallback](/docs/broadcaster-setup).

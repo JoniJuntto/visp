@@ -1,24 +1,7 @@
-import { AppShell } from "@astryxdesign/core/AppShell";
-import { AspectRatio } from "@astryxdesign/core/AspectRatio";
-import { Button } from "@astryxdesign/core/Button";
-import { Card } from "@astryxdesign/core/Card";
-import { Center } from "@astryxdesign/core/Center";
-import { Divider } from "@astryxdesign/core/Divider";
-import { Grid } from "@astryxdesign/core/Grid";
-import { HStack, VStack } from "@astryxdesign/core/Layout";
-import { Link as AstryxLink } from "@astryxdesign/core/Link";
-import { Section } from "@astryxdesign/core/Section";
-import { Heading, Text } from "@astryxdesign/core/Text";
-import { TopNav } from "@astryxdesign/core/TopNav";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-	type ComponentProps,
-	type CSSProperties,
-	forwardRef,
-	useEffect,
-	useState,
-} from "react";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
+import { MeterMark } from "@/components/meter-mark";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { authClient } from "@/lib/auth-client";
 import { legalEntity } from "@/lib/legal";
@@ -31,312 +14,128 @@ export const Route = createFileRoute("/")({
 	component: HomeComponent,
 });
 
-// Adapter so astryx Link renders through the router for SPA navigation.
-const RouterAnchor = forwardRef<HTMLAnchorElement, ComponentProps<"a">>(
-	function RouterAnchor({ href = "", ...props }, ref) {
-		return <Link ref={ref} to={href} {...props} />;
-	},
-);
+function TryCta({ size = "sm" }: { size?: "sm" | "lg" }) {
+	const { data: session } = authClient.useSession();
+	const navigate = useNavigate();
+	const lg = size === "lg";
+	return (
+		<button
+			type="button"
+			onClick={() => navigate({ to: session ? "/dashboard" : "/login" })}
+			className={`inline-flex items-center justify-center rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
+			}`}
+		>
+			Try VISP free
+		</button>
+	);
+}
 
-const WORDS = [
-	"the street.",
-	"the venue.",
-	"the crowd.",
-	"the road.",
-	"anywhere.",
+// The signature: phone → home studio → everywhere as one precise patch diagram.
+const CHAIN = [
+	{ x: 120, tag: "CAM 01", label: "phone" },
+	{ x: 380, tag: "ENCODE", label: "app" },
+	{ x: 640, tag: "STUDIO", label: "obs" },
+	{ x: 900, tag: "OUT", label: "everywhere" },
 ] as const;
-const GLYPHS = "#@$%&*+=<>/\\|~";
 
-// Inline color only: the scrambled word inherits the display heading's
-// size/weight, which no Text type reproduces.
-const accentInline: CSSProperties = { color: "var(--color-text-accent)" };
-
-function ScrambleWord() {
-	const [word, setWord] = useState<string>(WORDS[WORDS.length - 1]);
-
-	useEffect(() => {
-		let wi = 0;
-		let anim: ReturnType<typeof setInterval> | undefined;
-		const tick = setInterval(() => {
-			const target = WORDS[wi];
-			wi = (wi + 1) % WORDS.length;
-			let frame = 0;
-			const total = 12;
-			clearInterval(anim);
-			anim = setInterval(() => {
-				frame++;
-				if (frame >= total) {
-					clearInterval(anim);
-					setWord(target);
-					return;
-				}
-				const reveal = Math.floor((frame / total) * target.length);
-				let out = target.slice(0, reveal);
-				for (let i = reveal; i < target.length; i++) {
-					out += GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-				}
-				setWord(out);
-			}, 45);
-		}, 2600);
-		return () => {
-			clearInterval(tick);
-			clearInterval(anim);
-		};
-	}, []);
-
-	return <span style={accentInline}>{word}</span>;
+function SignalChain() {
+	return (
+		<svg
+			role="img"
+			aria-label="Signal chain: phone camera through the app to your home OBS studio, out to everywhere."
+			viewBox="0 0 1000 80"
+			className="block w-full text-foreground"
+		>
+			<line
+				x1="24"
+				y1="40"
+				x2="976"
+				y2="40"
+				stroke="currentColor"
+				strokeOpacity="0.28"
+				strokeWidth="1"
+			/>
+			{CHAIN.map((n) => (
+				<g key={n.tag}>
+					<rect
+						x={n.x - 6}
+						y={34}
+						width={12}
+						height={12}
+						fill="var(--background)"
+						stroke="currentColor"
+						strokeWidth="1.25"
+					/>
+					<text
+						x={n.x}
+						y={22}
+						textAnchor="middle"
+						className="font-mono"
+						fontSize="12"
+						letterSpacing="1.5"
+						fill="currentColor"
+					>
+						{n.tag}
+					</text>
+					<text
+						x={n.x}
+						y={64}
+						textAnchor="middle"
+						className="font-mono"
+						fontSize="11"
+						fill="currentColor"
+						fillOpacity="0.5"
+					>
+						{n.label}
+					</text>
+				</g>
+			))}
+			<circle className="chain-packet" r="4" fill="var(--color-tally)" />
+		</svg>
+	);
 }
 
 const productShots = [
 	{
-		src: "/marketing/app-live.jpg",
-		alt: "VISP app live on a phone — Stop control with OBS status",
+		src: "/marketing/app-live.png",
+		alt: "Live control with OBS status",
+		tag: "LIVE",
 	},
 	{
-		src: "/marketing/app-ready.jpg",
-		alt: "VISP app ready to go live with Twitch chat overlay",
+		src: "/marketing/app-obs-control.png",
+		alt: "Ready to go live with chat overlay",
+		tag: "READY",
 	},
 	{
-		src: "/marketing/app-camera-settings.jpg",
-		alt: "VISP camera settings — resolution, frame rate, and relay",
+		src: "/marketing/app-settings.png",
+		alt: "Camera settings — resolution, frame rate, relay",
+		tag: "CONFIG",
 	},
 ] as const;
 
-// Image fill + corner radius: AspectRatio has no objectFit/radius props.
-const shotImage: CSSProperties = {
-	width: "100%",
-	height: "100%",
-	objectFit: "cover",
-};
-const shotClip: CSSProperties = {
-	borderRadius: "var(--radius-container)",
-	overflow: "hidden",
-};
-
-function ProductShots() {
-	return (
-		<Grid columns={{ minWidth: 160, repeat: "fit" }} gap={3}>
-			{productShots.map((shot) => (
-				<AspectRatio key={shot.src} ratio={9 / 16} style={shotClip}>
-					<img
-						alt={shot.alt}
-						decoding="async"
-						loading="lazy"
-						src={shot.src}
-						style={shotImage}
-					/>
-				</AspectRatio>
-			))}
-		</Grid>
-	);
-}
-
-function SignalAnimation() {
-	const uplink = "M 112 148 C 210 178, 270 178, 358 148";
-	const branches = [
-		"M 442 148 C 540 148, 560 70, 680 70",
-		"M 442 156 C 520 156, 560 152, 680 152",
-		"M 442 164 C 540 164, 560 234, 680 234",
-	];
-	const nodeYs = [70, 152, 234];
-	const accent = "var(--color-accent)";
-	const surface = "var(--color-background-surface)";
-	const secondary = "var(--color-text-secondary)";
-	return (
-		<Section padding={6}>
-			<svg
-				aria-hidden="true"
-				role="presentation"
-				viewBox="0 0 800 270"
-				style={{
-					display: "block",
-					margin: "0 auto",
-					width: "100%",
-					maxWidth: 900,
-				}}
-			>
-				{/* phone */}
-				<rect
-					x="62"
-					y="86"
-					width="44"
-					height="84"
-					rx="10"
-					fill={surface}
-					stroke={accent}
-					strokeOpacity="0.7"
-					strokeWidth="2"
-				/>
-				<circle cx="84" cy="102" r="3" fill="#ff5c5c" className="tally-pulse" />
-				<line
-					x1="76"
-					y1="160"
-					x2="92"
-					y2="160"
-					stroke={accent}
-					strokeOpacity="0.5"
-					strokeWidth="2"
-					strokeLinecap="round"
-				/>
-				{[12, 22, 32].map((r, i) => (
-					<path
-						key={r}
-						d={`M 104 ${86 - r} A ${r} ${r} 0 0 1 ${104 + r} 86`}
-						fill="none"
-						stroke={accent}
-						strokeWidth="2"
-						strokeLinecap="round"
-						className="radio-arc"
-						style={{ animationDelay: `${i * 0.35}s` }}
-					/>
-				))}
-
-				{/* uplink */}
-				<path
-					d={uplink}
-					fill="none"
-					stroke={accent}
-					strokeOpacity="0.15"
-					strokeWidth="2"
-				/>
-				<path
-					d={uplink}
-					fill="none"
-					stroke={accent}
-					strokeWidth="3"
-					strokeLinecap="round"
-					className="flow-line"
-				/>
-
-				{/* home studio */}
-				<polyline
-					points="358,134 400,102 442,134"
-					fill="none"
-					stroke={accent}
-					strokeOpacity="0.7"
-					strokeWidth="2"
-					strokeLinejoin="round"
-				/>
-				<rect
-					x="364"
-					y="134"
-					width="72"
-					height="52"
-					fill={surface}
-					stroke={accent}
-					strokeOpacity="0.7"
-					strokeWidth="2"
-				/>
-				<rect
-					x="386"
-					y="148"
-					width="28"
-					height="18"
-					rx="2"
-					fill="none"
-					stroke={accent}
-					strokeOpacity="0.5"
-					strokeWidth="2"
-				/>
-
-				{/* fan-out to platforms */}
-				{branches.map((d, i) => (
-					<g key={d}>
-						<path
-							d={d}
-							fill="none"
-							stroke={accent}
-							strokeOpacity="0.15"
-							strokeWidth="2"
-						/>
-						<path
-							d={d}
-							fill="none"
-							stroke={accent}
-							strokeWidth="3"
-							strokeLinecap="round"
-							className="flow-line"
-							style={{ animationDelay: `${i * 0.25}s` }}
-						/>
-					</g>
-				))}
-				{nodeYs.map((y, i) => (
-					<g key={y}>
-						<circle
-							cx="690"
-							cy={y}
-							r="6"
-							fill={surface}
-							stroke={accent}
-							strokeWidth="2"
-						/>
-						<circle
-							cx="690"
-							cy={y}
-							r="2.5"
-							fill={accent}
-							className="tally-pulse"
-							style={{ animationDelay: `${i * 0.5}s` }}
-						/>
-					</g>
-				))}
-
-				{/* labels */}
-				<text x="84" y="198" textAnchor="middle" fill={secondary} fontSize="13">
-					phone
-				</text>
-				<text
-					x="400"
-					y="212"
-					textAnchor="middle"
-					fill={secondary}
-					fontSize="13"
-				>
-					home studio
-				</text>
-				<text
-					x="690"
-					y="262"
-					textAnchor="middle"
-					fill={secondary}
-					fontSize="13"
-				>
-					everywhere.
-				</text>
-			</svg>
-		</Section>
-	);
-}
-
-function TryCta({ size = "md" }: { size?: "md" | "lg" }) {
-	const { data: session } = authClient.useSession();
-	const navigate = useNavigate();
-	return (
-		<Button
-			label="Try VISP free"
-			size={size}
-			variant="primary"
-			onClick={() => navigate({ to: session ? "/dashboard" : "/login" })}
-		/>
-	);
-}
-
-const bentoCards = [
+// Features as channel strips: the mono tag is the signal-path capability,
+// not decoration. No 01/02/03 — these are channels, not a sequence.
+const channels = [
 	{
-		title: "their studio, untouched",
-		body: "scenes, alerts, graphics, and years of muscle memory keep working. nothing to rebuild — VISP plugs into the OBS setup you already have. the OBS plugin is live in beta.",
+		tag: "CAM",
+		title: "Two cameras, one stream",
+		body: "Run multiple phone cams — each with its own mic — into the same broadcast. A second phone becomes a real scene, not a video-call window.",
 	},
 	{
-		title: "two cameras, one stream",
-		body: "run multiple phone cameras — each with its own mic — feeding the same broadcast. a second phone becomes a real scene, not a video-call window.",
+		tag: "OBS",
+		title: "Your studio, untouched",
+		body: "Scenes, alerts, graphics, years of muscle memory — all keep working. VISP plugs into the OBS setup you already have. Plugin live in beta.",
 	},
 	{
-		title: "streams that survive",
-		body: "a short signal drop doesn't end the broadcast — the home studio keeps the show alive.",
+		tag: "NET",
+		title: "Streams that survive",
+		body: "A short signal drop doesn't end the broadcast. The home studio keeps the show alive while your phone reconnects.",
 	},
 	{
-		title: "keys that stay home",
-		body: "every camera gets its own private access you can revoke anytime. your broadcast key never enters VISP.",
+		tag: "KEY",
+		title: "Keys that stay home",
+		body: "Every camera gets its own private access you can revoke anytime. Your broadcast key never enters VISP.",
 	},
 ];
 
@@ -350,11 +149,21 @@ const footerLinks = [
 	{ label: "Cookies", href: "/cookies", external: false },
 ];
 
+const navLinks = [
+	{ label: "Docs", href: legalEntity.docsUrl, external: true },
+	{ label: "Download", href: "/download", external: false },
+	{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
+	{ label: "Contact", href: "/contact", external: false },
+];
+
 const LANDING_SEPPO_SUGGESTIONS = [
 	"What is VISP for?",
 	"Can I use my phone with OBS?",
 	"What do I need to get started?",
 ];
+
+const eyebrow =
+	"font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground";
 
 function HomeComponent() {
 	const [seppoOpen, setSeppoOpen] = useState(false);
@@ -367,181 +176,176 @@ function HomeComponent() {
 
 	return (
 		<>
-			<AppShell
-				contentPadding={4}
-				height="auto"
-				topNav={
-					<TopNav
-						heading={
-							<img alt="VISP" src="/visp-logo.png" style={{ height: 36 }} />
-						}
-						label="Main"
-						endContent={
-							<HStack gap={4} vAlign="center">
-								<AstryxLink
-									href={legalEntity.docsUrl}
-									isExternalLink
-									isStandalone
+			<main className="min-h-screen bg-background text-foreground">
+				<div className="mx-auto max-w-[1100px] px-6">
+					{/* Top nav */}
+					<header className="flex items-center justify-between border-border border-b py-5">
+						<Link to="/" className="flex items-center gap-3">
+							<span className="font-bold font-display text-xl uppercase leading-none tracking-[0.28em]">
+								VISP
+							</span>
+							<MeterMark />
+						</Link>
+						<nav className="flex items-center gap-7 text-sm">
+							<span className="hidden items-center gap-7 sm:flex">
+								{navLinks.map((l) =>
+									l.external ? (
+										<a
+											key={l.label}
+											href={l.href}
+											target="_blank"
+											rel="noreferrer"
+											className="text-muted-foreground transition-colors hover:text-foreground"
+										>
+											{l.label}
+										</a>
+									) : (
+										<Link
+											key={l.label}
+											to={l.href}
+											className="text-muted-foreground transition-colors hover:text-foreground"
+										>
+											{l.label}
+										</Link>
+									),
+								)}
+							</span>
+							<TryCta />
+						</nav>
+					</header>
+
+					{/* Hero */}
+					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-28">
+						<div className="flex flex-col gap-7">
+							<h1 className="font-display font-semibold text-6xl uppercase leading-[0.92] tracking-tight sm:text-7xl md:text-[5.5rem]">
+								Go live from
+								<br />
+								anywhere
+							</h1>
+							<p className="max-w-md text-lg text-muted-foreground leading-relaxed">
+								Run multiple phone cams with their own mics, pull a guest onto
+								the stream, and keep broadcasting when the signal dips.
+							</p>
+							<p className="font-medium text-base">
+								Full production. Zero leash.
+							</p>
+						</div>
+
+						{/* Product shots — real captures, reframed in hairline device slabs */}
+						<div className="flex justify-center gap-3 md:justify-end">
+							{productShots.map((shot, i) => (
+								<figure
+									key={shot.src}
+									className="relative w-1/3 max-w-[140px] overflow-hidden rounded-[10px] border border-border bg-card"
+									style={{
+										transform: `translateY(${i === 1 ? -14 : 0}px)`,
+									}}
 								>
-									Docs
-								</AstryxLink>
-								<AstryxLink as={RouterAnchor} href="/download" isStandalone>
-									Download
-								</AstryxLink>
-								<AstryxLink
-									href={legalEntity.sourceUrl}
-									isExternalLink
-									isStandalone
+									<img
+										src={shot.src}
+										alt={shot.alt}
+										loading="lazy"
+										decoding="async"
+										className="aspect-[9/16] w-full object-cover"
+									/>
+									<figcaption className="absolute top-2 left-2 rounded-sm bg-background/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground backdrop-blur-sm">
+										{shot.tag}
+									</figcaption>
+								</figure>
+							))}
+						</div>
+					</section>
+
+					{/* Signature: the signal chain */}
+					<section className="border-border border-y py-14">
+						<span className={eyebrow}>Signal chain</span>
+						<div className="mt-8">
+							<SignalChain />
+						</div>
+						<p className="mt-6 max-w-xl text-muted-foreground text-sm leading-relaxed">
+							Phones in the field. OBS at home. Platforms get the feed — one
+							chain, no truck in between.
+						</p>
+					</section>
+
+					{/* Channels */}
+					<section className="py-20">
+						<h2 className="max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
+							Not for everyone.
+							<br />
+							For creators who want more.
+						</h2>
+						<ul className="mt-14 grid gap-px border border-border bg-border sm:grid-cols-2">
+							{channels.map((c) => (
+								<li key={c.tag} className="bg-background p-8">
+									<span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+										{c.tag}
+									</span>
+									<h3 className="mt-4 font-display font-semibold text-2xl uppercase leading-tight tracking-tight">
+										{c.title}
+									</h3>
+									<p className="mt-3 text-muted-foreground leading-relaxed">
+										{c.body}
+									</p>
+								</li>
+							))}
+						</ul>
+					</section>
+
+					{/* Closing CTA */}
+					<section className="border-border border-t py-24 text-center">
+						<span className={eyebrow}>Join the beta</span>
+						<h2 className="mt-5 font-display font-semibold text-6xl uppercase leading-none tracking-tight sm:text-7xl">
+							It's free
+						</h2>
+						<div className="mt-8 flex flex-col items-center gap-3">
+							<TryCta size="lg" />
+							<p className="max-w-md text-muted-foreground text-sm leading-relaxed">
+								Setup takes three questions, not three weekends. Phone apps,
+								browser publisher, and OBS plugin —{" "}
+								<Link
+									to="/download"
+									className="text-foreground underline underline-offset-4"
 								>
-									GitHub
-								</AstryxLink>
-								<AstryxLink as={RouterAnchor} href="/contact" isStandalone>
-									Contact
-								</AstryxLink>
-								<TryCta />
-							</HStack>
-						}
-					/>
-				}
-			>
-				<VStack gap={10} paddingBlock={8}>
-					<Center axis="horizontal">
-						<VStack gap={6} hAlign="center" maxWidth={820}>
-							<VStack gap={3} hAlign="center">
-								<Heading
-									justify="center"
-									level={1}
-									textWrap="balance"
-									type="display-1"
-								>
-									go live from <ScrambleWord />
-								</Heading>
-								<Text
-									color="secondary"
-									justify="center"
-									textWrap="balance"
-									type="large"
-								>
-									Run multiple phone cams with their own mics, pull a friend
-									onto the stream, and keep broadcasting when the signal dips.
-								</Text>
-								<Text
-									justify="center"
-									textWrap="balance"
-									type="large"
-									weight="semibold"
-								>
-									Full production. Zero leash.
-								</Text>
-							</VStack>
-							<VStack gap={2} hAlign="center">
-								<TryCta size="lg" />
-								<Text color="secondary" type="supporting">
-									free while in beta · no credit card required
-								</Text>
-							</VStack>
-						</VStack>
-					</Center>
+									see Download &amp; beta
+								</Link>
+								.
+							</p>
+						</div>
+					</section>
 
-					<SignalAnimation />
-
-					<Center axis="horizontal">
-						<VStack gap={6} maxWidth={1080} width="100%">
-							<Heading
-								justify="center"
-								level={2}
-								textWrap="balance"
-								type="display-3"
-							>
-								not for everyone. for creators who want…
-							</Heading>
-							<Card>
-								<VStack gap={3}>
-									<Heading level={3}>the whole show, from a phone</Heading>
-									<Text color="secondary" textWrap="pretty">
-										the VISP app — or the camera app you already love — becomes
-										a proper camera for your full production. not a smaller
-										substitute for it.
-									</Text>
-									<ProductShots />
-								</VStack>
-							</Card>
-							<Grid columns={{ minWidth: 260, repeat: "fit" }} gap={3}>
-								{bentoCards.map((card) => (
-									<Card key={card.title}>
-										<VStack gap={2}>
-											<Heading level={3}>{card.title}</Heading>
-											<Text color="secondary" textWrap="pretty">
-												{card.body}
-											</Text>
-										</VStack>
-									</Card>
-								))}
-							</Grid>
-						</VStack>
-					</Center>
-
-					<Divider />
-
-					<VStack gap={4} hAlign="center" paddingBlock={8}>
-						<Heading justify="center" level={2} type="display-2">
-							join the beta
-						</Heading>
-						<Text justify="center" type="display-2" weight="bold">
-							<span style={accentInline}>it's free</span>
-						</Text>
-						<TryCta size="lg" />
-						<Text color="secondary" justify="center" type="supporting">
-							no credit card required · setup takes three questions, not three
-							weekends
-						</Text>
-						<Text
-							color="secondary"
-							justify="center"
-							textWrap="balance"
-							type="supporting"
-						>
-							Phone apps, browser publisher, and OBS plugin — see{" "}
-							<AstryxLink as={RouterAnchor} href="/download">
-								Download &amp; beta
-							</AstryxLink>
-							. You do not need to self-host to try the hosted beta.
-						</Text>
-					</VStack>
-
-					<Divider />
-
-					<VStack gap={3} hAlign="center">
-						<HStack gap={3} hAlign="center" wrap="wrap">
-							{footerLinks.map((item) =>
-								item.external ? (
-									<AstryxLink
-										href={item.href}
-										isExternalLink
-										isStandalone
-										key={item.label}
+					{/* Footer */}
+					<footer className="flex flex-col gap-4 border-border border-t py-10">
+						<nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+							{footerLinks.map((l) =>
+								l.external ? (
+									<a
+										key={l.label}
+										href={l.href}
+										target="_blank"
+										rel="noreferrer"
+										className="text-muted-foreground transition-colors hover:text-foreground"
 									>
-										{item.label}
-									</AstryxLink>
+										{l.label}
+									</a>
 								) : (
-									<AstryxLink
-										as={RouterAnchor}
-										href={item.href}
-										isStandalone
-										key={item.label}
+									<Link
+										key={l.label}
+										to={l.href}
+										className="text-muted-foreground transition-colors hover:text-foreground"
 									>
-										{item.label}
-									</AstryxLink>
+										{l.label}
+									</Link>
 								),
 							)}
-						</HStack>
-						<Text color="secondary" justify="center" type="supporting">
+						</nav>
+						<p className="font-mono text-muted-foreground text-xs">
 							© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the
 							studio.
-						</Text>
-					</VStack>
-				</VStack>
-			</AppShell>
+						</p>
+					</footer>
+				</div>
+			</main>
 			<SeppoWidget
 				context="landing"
 				open={seppoOpen}

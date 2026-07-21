@@ -112,10 +112,10 @@ For normal portal/API work, use the one-stop launcher:
 | --- | --- | --- |
 | Complete local stack | `bun run dev:local` | `https://visp.localhost` |
 | API | managed by the launcher | `https://api.visp.localhost` |
+| Docs | managed by the launcher | `https://docs.visp.localhost` |
 | Relay | managed by the launcher | `https://relay.visp.localhost` |
 | MinIO console | managed by the launcher | `https://minio.visp.localhost` |
 | PostgreSQL | managed by the launcher | `127.0.0.1:54320` |
-| Documentation | `bun run --cwd apps/fumadocs dev` | `http://localhost:4000` |
 | Expo dev server | `bun run --cwd apps/native dev` | shown by Expo |
 
 `bun run dev` starts every workspace development task through Turborepo,

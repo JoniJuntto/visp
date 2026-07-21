@@ -143,6 +143,7 @@ async function main() {
 	console.log("\nVISP local environment is ready:");
 	console.log("  Web:           https://visp.localhost");
 	console.log("  API:           https://api.visp.localhost");
+	console.log("  Docs:          https://docs.visp.localhost");
 	console.log("  Relay:         https://relay.visp.localhost");
 	console.log("  MinIO console: https://minio.visp.localhost\n");
 	const apps = Bun.spawn(
@@ -153,6 +154,8 @@ async function main() {
 			"server",
 			"--filter",
 			"web",
+			"--filter",
+			"fumadocs",
 			"--parallel",
 			"dev",
 		],

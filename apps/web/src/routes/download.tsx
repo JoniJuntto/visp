@@ -9,6 +9,7 @@ import {
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { getObsPluginRelease } from "@/functions/get-obs-releases";
+import { docs } from "@/lib/docs";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
 
@@ -72,7 +73,7 @@ function DownloadPage() {
 						</Link>
 						<a
 							className={buttonVariants({ variant: "outline" })}
-							href={`${legalEntity.docsUrl}/docs/get-started`}
+							href={docs.getStarted}
 							rel="noreferrer"
 							target="_blank"
 						>
@@ -121,7 +122,7 @@ function DownloadPage() {
 								Install, then pair from the dashboard OBS card. Docs:{" "}
 								<a
 									className="text-foreground underline underline-offset-4"
-									href={`${legalEntity.docsUrl}/docs/obs-remote-control`}
+									href={docs.obsRemoteControl}
 									rel="noreferrer"
 									target="_blank"
 								>
@@ -219,7 +220,7 @@ function DownloadPage() {
 						</a>
 						<a
 							className={buttonVariants({ variant: "outline" })}
-							href={`${legalEntity.docsUrl}/docs/self-hosting`}
+							href={docs.selfHosting}
 							rel="noreferrer"
 							target="_blank"
 						>

@@ -3,10 +3,27 @@ import { Card } from "@astryxdesign/core/Card";
 import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Link } from "@astryxdesign/core/Link";
 import { Text } from "@astryxdesign/core/Text";
 import { CopyIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { DocsHelpLink } from "@/components/docs-help-link";
+
+async function copyToClipboard(value: string | (() => Promise<string>)) {
+	try {
+		await navigator.clipboard.writeText(
+			typeof value === "function" ? await value() : value,
+		);
+		toast.success("Copied");
+	} catch (error) {
+		toast.error(
+			error instanceof Error
+				? error.message
+				: "Could not copy to the clipboard",
+		);
+	}
+}
 
 export function CopyButton({
 	value,
@@ -23,16 +40,7 @@ export function CopyButton({
 	const copy = async () => {
 		setIsLoading(true);
 		try {
-			await navigator.clipboard.writeText(
-				typeof value === "function" ? await value() : value,
-			);
-			toast.success("Copied");
-		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: "Could not copy to the clipboard",
-			);
+			await copyToClipboard(value);
 		} finally {
 			setIsLoading(false);
 		}
@@ -56,22 +64,31 @@ export function MaskedUrlWithFallback({
 	rtmp,
 	getSrt,
 	getRtmp,
+	docsHref,
+	docsLabel,
 }: {
 	label: string;
 	srt: string;
 	rtmp: string;
 	getSrt: () => Promise<string>;
 	getRtmp: () => Promise<string>;
+	docsHref?: string;
+	docsLabel?: string;
 }) {
 	return (
 		<VStack gap={2}>
 			<Card padding={3} variant="muted">
 				<VStack gap={2}>
 					<HStack gap={3} hAlign="between" vAlign="center">
-						<Text type="label">{label}</Text>
+						<HStack gap={1.5} vAlign="center">
+							<Text type="label">{label}</Text>
+							{docsHref && docsLabel ? (
+								<DocsHelpLink href={docsHref} label={docsLabel} />
+							) : null}
+						</HStack>
 						<CopyButton label="Copy URL" value={getSrt} />
 					</HStack>
-					<Text type="code" wordBreak="break-all">
+					<Text size="xsm" color="placeholder" wordBreak="break-all">
 						{srt}
 					</Text>
 				</VStack>
@@ -100,12 +117,61 @@ export function MaskedUrlWithFallback({
 	);
 }
 
+export function SimpleUrl({
+	label,
+	url,
+	copyValue,
+	docsHref,
+	docsLabel,
+}: {
+	label: string;
+	url: string;
+	copyValue: string | (() => Promise<string>);
+	docsHref?: string;
+	docsLabel?: string;
+}) {
+	return (
+		// rr-block keeps secrets out of session replay
+		<div className="rr-block" data-rybbit-block>
+			<VStack gap={1}>
+				<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
+					<HStack gap={1.5} vAlign="center">
+						<Text size="2xl" weight="bold">
+							{label}
+						</Text>
+						{docsHref && docsLabel ? (
+							<DocsHelpLink href={docsHref} label={docsLabel} />
+						) : null}
+					</HStack>
+					<CopyButton label="Copy" value={copyValue} />
+				</HStack>
+				<Link
+					color="placeholder"
+					label="Copy"
+					size="xsm"
+					style={{ wordBreak: "break-all", textAlign: "start" }}
+					tooltip="Copy"
+					onClick={() => {
+						void copyToClipboard(copyValue);
+					}}
+				>
+					{url}
+				</Link>
+			</VStack>
+		</div>
+	);
+}
+
 export function RevealedValue({
 	label,
 	value,
+	docsHref,
+	docsLabel,
 }: {
 	label: string;
 	value: string;
+	docsHref?: string;
+	docsLabel?: string;
 }) {
 	return (
 		// rr-block keeps secrets out of session replay
@@ -113,7 +179,12 @@ export function RevealedValue({
 			<Card padding={3} variant="muted">
 				<VStack gap={2}>
 					<HStack gap={3} hAlign="between" vAlign="center">
-						<Text type="label">{label}</Text>
+						<HStack gap={1.5} vAlign="center">
+							<Text type="label">{label}</Text>
+							{docsHref && docsLabel ? (
+								<DocsHelpLink href={docsHref} label={docsLabel} />
+							) : null}
+						</HStack>
 						<CopyButton value={value} />
 					</HStack>
 					<Text type="code" wordBreak="break-all">
@@ -129,14 +200,23 @@ export function UrlWithFallback({
 	label = "Stream URL",
 	srt,
 	rtmp,
+	docsHref,
+	docsLabel,
 }: {
 	label?: string;
 	srt: string;
 	rtmp: string;
+	docsHref?: string;
+	docsLabel?: string;
 }) {
 	return (
 		<VStack gap={2}>
-			<RevealedValue label={label} value={srt} />
+			<RevealedValue
+				docsHref={docsHref}
+				docsLabel={docsLabel}
+				label={label}
+				value={srt}
+			/>
 			<Collapsible
 				defaultIsOpen={false}
 				trigger={
