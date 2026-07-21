@@ -21,6 +21,9 @@
 @import "@astryxdesign/core/astryx.css" layer(components);
 @import "@astryxdesign/theme-neutral/theme.css" layer(components);
 
+/* Streamdown (Seppo chat markdown) styles itself with Tailwind classes. */
+@source "../node_modules/streamdown/dist/*.js";
+
 /*
  * VISP visual identity: "signal chain, not SaaS".
  * Lifted cool charcoal, bone primary, color reserved for signal state

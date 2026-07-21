@@ -110,7 +110,8 @@ function DownloadPage() {
 						<CardHeader>
 							<CardTitle>OBS plugin</CardTitle>
 							<CardDescription>
-								Remote start/stop and scene control. Live in beta.
+								Sign in from OBS, list publishing devices, add Media Sources in
+								one click, and start/stop going live. Live in beta.
 								{obsRelease ? ` Latest: ${obsRelease.tagName}.` : null}
 							</CardDescription>
 						</CardHeader>
@@ -146,7 +147,7 @@ function DownloadPage() {
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
-								href="https://testflight.apple.com/join/Fc3VttNn"
+								href={legalEntity.iosTestFlightUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
@@ -170,7 +171,7 @@ function DownloadPage() {
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
-								href="https://play.google.com/apps/testing/com.pohinagroup.visp"
+								href={legalEntity.androidPlayTestingUrl}
 								rel="noreferrer"
 								target="_blank"
 							>

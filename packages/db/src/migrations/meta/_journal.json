@@ -43,6 +43,13 @@
       "when": 1784469749199,
       "tag": "0005_smart_silver_samurai",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784620819277,
+      "tag": "0006_hesitant_shatterstar",
+      "breakpoints": true
     }
   ]
 }

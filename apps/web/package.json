@@ -44,6 +44,7 @@
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"sonner": "catalog:",
+		"streamdown": "^2.5.0",
 		"tailwindcss": "catalog:",
 		"zod": "catalog:"
 	},

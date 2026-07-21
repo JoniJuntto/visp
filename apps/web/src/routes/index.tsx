@@ -19,8 +19,10 @@ import {
 	useState,
 } from "react";
 
+import { SeppoWidget } from "@/components/seppo-widget";
 import { authClient } from "@/lib/auth-client";
 import { legalEntity } from "@/lib/legal";
+import { scheduleLandingSeppoAutoOpen } from "@/lib/seppo-landing";
 
 export const Route = createFileRoute("/")({
 	head: () => ({
@@ -348,182 +350,207 @@ const footerLinks = [
 	{ label: "Cookies", href: "/cookies", external: false },
 ];
 
+const LANDING_SEPPO_SUGGESTIONS = [
+	"What is VISP for?",
+	"Can I use my phone with OBS?",
+	"What do I need to get started?",
+];
+
 function HomeComponent() {
+	const [seppoOpen, setSeppoOpen] = useState(false);
+
+	useEffect(
+		() =>
+			scheduleLandingSeppoAutoOpen(sessionStorage, () => setSeppoOpen(true)),
+		[],
+	);
+
 	return (
-		<AppShell
-			contentPadding={4}
-			height="auto"
-			topNav={
-				<TopNav
-					heading={
-						<img alt="VISP" src="/visp-logo.png" style={{ height: 36 }} />
-					}
-					label="Main"
-					endContent={
-						<HStack gap={4} vAlign="center">
-							<AstryxLink
-								href={legalEntity.docsUrl}
-								isExternalLink
-								isStandalone
-							>
-								Docs
-							</AstryxLink>
-							<AstryxLink as={RouterAnchor} href="/download" isStandalone>
-								Download
-							</AstryxLink>
-							<AstryxLink
-								href={legalEntity.sourceUrl}
-								isExternalLink
-								isStandalone
-							>
-								GitHub
-							</AstryxLink>
-							<AstryxLink as={RouterAnchor} href="/contact" isStandalone>
-								Contact
-							</AstryxLink>
-							<TryCta />
-						</HStack>
-					}
-				/>
-			}
-		>
-			<VStack gap={10} paddingBlock={8}>
-				<Center axis="horizontal">
-					<VStack gap={6} hAlign="center" maxWidth={820}>
-						<VStack gap={3} hAlign="center">
-							<Heading
-								justify="center"
-								level={1}
-								textWrap="balance"
-								type="display-1"
-							>
-								go live from <ScrambleWord />
-							</Heading>
-							<Text
-								color="secondary"
-								justify="center"
-								textWrap="balance"
-								type="large"
-							>
-								Run multiple phone cams with their own mics, pull a friend onto
-								the stream, and keep broadcasting when the signal dips.
-							</Text>
-							<Text
-								justify="center"
-								textWrap="balance"
-								type="large"
-								weight="semibold"
-							>
-								Full production. Zero leash.
-							</Text>
-						</VStack>
-						<VStack gap={2} hAlign="center">
-							<TryCta size="lg" />
-							<Text color="secondary" type="supporting">
-								free while in beta · no credit card required
-							</Text>
-						</VStack>
-					</VStack>
-				</Center>
-
-				<SignalAnimation />
-
-				<Center axis="horizontal">
-					<VStack gap={6} maxWidth={1080} width="100%">
-						<Heading
-							justify="center"
-							level={2}
-							textWrap="balance"
-							type="display-3"
-						>
-							not for everyone. for creators who want…
-						</Heading>
-						<Card>
-							<VStack gap={3}>
-								<Heading level={3}>the whole show, from a phone</Heading>
-								<Text color="secondary" textWrap="pretty">
-									the VISP app — or the camera app you already love — becomes a
-									proper camera for your full production. not a smaller
-									substitute for it.
-								</Text>
-								<ProductShots />
-							</VStack>
-						</Card>
-						<Grid columns={{ minWidth: 260, repeat: "fit" }} gap={3}>
-							{bentoCards.map((card) => (
-								<Card key={card.title}>
-									<VStack gap={2}>
-										<Heading level={3}>{card.title}</Heading>
-										<Text color="secondary" textWrap="pretty">
-											{card.body}
-										</Text>
-									</VStack>
-								</Card>
-							))}
-						</Grid>
-					</VStack>
-				</Center>
-
-				<Divider />
-
-				<VStack gap={4} hAlign="center" paddingBlock={8}>
-					<Heading justify="center" level={2} type="display-2">
-						join the beta
-					</Heading>
-					<Text justify="center" type="display-2" weight="bold">
-						<span style={accentInline}>it's free</span>
-					</Text>
-					<TryCta size="lg" />
-					<Text color="secondary" justify="center" type="supporting">
-						no credit card required · setup takes three questions, not three
-						weekends
-					</Text>
-					<Text
-						color="secondary"
-						justify="center"
-						textWrap="balance"
-						type="supporting"
-					>
-						Phone apps, browser publisher, and OBS plugin — see{" "}
-						<AstryxLink as={RouterAnchor} href="/download">
-							Download &amp; beta
-						</AstryxLink>
-						. You do not need to self-host to try the hosted beta.
-					</Text>
-				</VStack>
-
-				<Divider />
-
-				<VStack gap={3} hAlign="center">
-					<HStack gap={3} hAlign="center" wrap="wrap">
-						{footerLinks.map((item) =>
-							item.external ? (
+		<>
+			<AppShell
+				contentPadding={4}
+				height="auto"
+				topNav={
+					<TopNav
+						heading={
+							<img alt="VISP" src="/visp-logo.png" style={{ height: 36 }} />
+						}
+						label="Main"
+						endContent={
+							<HStack gap={4} vAlign="center">
 								<AstryxLink
-									href={item.href}
+									href={legalEntity.docsUrl}
 									isExternalLink
 									isStandalone
-									key={item.label}
 								>
-									{item.label}
+									Docs
 								</AstryxLink>
-							) : (
+								<AstryxLink as={RouterAnchor} href="/download" isStandalone>
+									Download
+								</AstryxLink>
 								<AstryxLink
-									as={RouterAnchor}
-									href={item.href}
+									href={legalEntity.sourceUrl}
+									isExternalLink
 									isStandalone
-									key={item.label}
 								>
-									{item.label}
+									GitHub
 								</AstryxLink>
-							),
-						)}
-					</HStack>
-					<Text color="secondary" justify="center" type="supporting">
-						© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the
-						studio.
-					</Text>
+								<AstryxLink as={RouterAnchor} href="/contact" isStandalone>
+									Contact
+								</AstryxLink>
+								<TryCta />
+							</HStack>
+						}
+					/>
+				}
+			>
+				<VStack gap={10} paddingBlock={8}>
+					<Center axis="horizontal">
+						<VStack gap={6} hAlign="center" maxWidth={820}>
+							<VStack gap={3} hAlign="center">
+								<Heading
+									justify="center"
+									level={1}
+									textWrap="balance"
+									type="display-1"
+								>
+									go live from <ScrambleWord />
+								</Heading>
+								<Text
+									color="secondary"
+									justify="center"
+									textWrap="balance"
+									type="large"
+								>
+									Run multiple phone cams with their own mics, pull a friend
+									onto the stream, and keep broadcasting when the signal dips.
+								</Text>
+								<Text
+									justify="center"
+									textWrap="balance"
+									type="large"
+									weight="semibold"
+								>
+									Full production. Zero leash.
+								</Text>
+							</VStack>
+							<VStack gap={2} hAlign="center">
+								<TryCta size="lg" />
+								<Text color="secondary" type="supporting">
+									free while in beta · no credit card required
+								</Text>
+							</VStack>
+						</VStack>
+					</Center>
+
+					<SignalAnimation />
+
+					<Center axis="horizontal">
+						<VStack gap={6} maxWidth={1080} width="100%">
+							<Heading
+								justify="center"
+								level={2}
+								textWrap="balance"
+								type="display-3"
+							>
+								not for everyone. for creators who want…
+							</Heading>
+							<Card>
+								<VStack gap={3}>
+									<Heading level={3}>the whole show, from a phone</Heading>
+									<Text color="secondary" textWrap="pretty">
+										the VISP app — or the camera app you already love — becomes
+										a proper camera for your full production. not a smaller
+										substitute for it.
+									</Text>
+									<ProductShots />
+								</VStack>
+							</Card>
+							<Grid columns={{ minWidth: 260, repeat: "fit" }} gap={3}>
+								{bentoCards.map((card) => (
+									<Card key={card.title}>
+										<VStack gap={2}>
+											<Heading level={3}>{card.title}</Heading>
+											<Text color="secondary" textWrap="pretty">
+												{card.body}
+											</Text>
+										</VStack>
+									</Card>
+								))}
+							</Grid>
+						</VStack>
+					</Center>
+
+					<Divider />
+
+					<VStack gap={4} hAlign="center" paddingBlock={8}>
+						<Heading justify="center" level={2} type="display-2">
+							join the beta
+						</Heading>
+						<Text justify="center" type="display-2" weight="bold">
+							<span style={accentInline}>it's free</span>
+						</Text>
+						<TryCta size="lg" />
+						<Text color="secondary" justify="center" type="supporting">
+							no credit card required · setup takes three questions, not three
+							weekends
+						</Text>
+						<Text
+							color="secondary"
+							justify="center"
+							textWrap="balance"
+							type="supporting"
+						>
+							Phone apps, browser publisher, and OBS plugin — see{" "}
+							<AstryxLink as={RouterAnchor} href="/download">
+								Download &amp; beta
+							</AstryxLink>
+							. You do not need to self-host to try the hosted beta.
+						</Text>
+					</VStack>
+
+					<Divider />
+
+					<VStack gap={3} hAlign="center">
+						<HStack gap={3} hAlign="center" wrap="wrap">
+							{footerLinks.map((item) =>
+								item.external ? (
+									<AstryxLink
+										href={item.href}
+										isExternalLink
+										isStandalone
+										key={item.label}
+									>
+										{item.label}
+									</AstryxLink>
+								) : (
+									<AstryxLink
+										as={RouterAnchor}
+										href={item.href}
+										isStandalone
+										key={item.label}
+									>
+										{item.label}
+									</AstryxLink>
+								),
+							)}
+						</HStack>
+						<Text color="secondary" justify="center" type="supporting">
+							© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the
+							studio.
+						</Text>
+					</VStack>
 				</VStack>
-			</VStack>
-		</AppShell>
+			</AppShell>
+			<SeppoWidget
+				context="landing"
+				open={seppoOpen}
+				placeholder="Ask about VISP…"
+				subtitle="Product guide — ask what VISP can do"
+				suggestions={LANDING_SEPPO_SUGGESTIONS}
+				welcome="Hi, I'm Seppo. Curious whether VISP fits your stream? Ask me what it does, what you need, or how phones and remote guests reach OBS."
+				onOpenChange={setSeppoOpen}
+			/>
+		</>
 	);
 }

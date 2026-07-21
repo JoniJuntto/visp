@@ -37,18 +37,19 @@ each with a Media Source ready to reconnect automatically.
 
 ## 4. Pair the OBS plugin
 
-Remote start, stop, and scene switching need the VISP plugin for OBS Studio 31.
+Device setup, one-click Media Sources, and remote control use the VISP plugin
+for OBS Studio 31.
 
 1. Download the package for your OS from the project's
    [GitHub Releases](https://github.com/PohinaGroup/visp/releases), install it,
    and restart OBS.
-2. In the VISP dashboard, open **OBS remote control** and generate a token.
-3. In OBS, open **Tools → VISP Remote Control**, paste the token (or import
-   `config.ini`), and save.
+2. In OBS, open **Tools → VISP Remote Control** and click **Sign in with
+   browser**.
+3. Sign in to VISP, approve the displayed code, and return to OBS.
 
-The dashboard should show **Connected** within a few seconds. OBS must already
-have a streaming service and stream key configured — the plugin only presses
-OBS's own start and stop.
+The dashboard should show **Connected** within a few seconds. The OBS dialog can
+now add any device feed to the selected scene or create a VISP publishing
+device for this OBS profile.
 
 ![Dashboard OBS remote control card](./images/web-obs-token.png)
 

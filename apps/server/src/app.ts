@@ -20,8 +20,11 @@ initLogger({ env: { service: "VISP-server" } });
 export const LOG_REDACTION_PATHS = [
 	"**.password",
 	"**.accessToken",
+	"**.access_token",
 	"**.refreshToken",
 	"**.ticket",
+	"**.token",
+	"**.device_code",
 	"**.authorization",
 	"**.x-hook-secret",
 ];

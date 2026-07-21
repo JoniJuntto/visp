@@ -14,6 +14,7 @@ import { Route as RequestDeleteRouteImport } from './routes/request-delete'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DownloadRouteImport } from './routes/download'
+import { Route as DeviceRouteImport } from './routes/device'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
@@ -44,6 +45,11 @@ const LoginRoute = LoginRouteImport.update({
 const DownloadRoute = DownloadRouteImport.update({
   id: '/download',
   path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeviceRoute = DeviceRouteImport.update({
+  id: '/device',
+  path: '/device',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CookiesRoute = CookiesRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
+  '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contact'
     | '/cookies'
+    | '/device'
     | '/download'
     | '/login'
     | '/privacy'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contact'
     | '/cookies'
+    | '/device'
     | '/download'
     | '/login'
     | '/privacy'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/contact'
     | '/cookies'
+    | '/device'
     | '/download'
     | '/login'
     | '/privacy'
@@ -159,6 +171,7 @@ export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
+  DeviceRoute: typeof DeviceRoute
   DownloadRoute: typeof DownloadRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/download'
       fullPath: '/download'
       preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/device': {
+      id: '/device'
+      path: '/device'
+      fullPath: '/device'
+      preLoaderRoute: typeof DeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cookies': {
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
+  DeviceRoute: DeviceRoute,
   DownloadRoute: DownloadRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,

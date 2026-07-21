@@ -15,13 +15,21 @@ import { z } from "zod";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/login")({
-	validateSearch: z.object({ error: z.string().optional() }),
+	validateSearch: z.object({
+		error: z.string().optional(),
+		redirect: z.string().optional(),
+	}),
 	component: RouteComponent,
 });
 
+function safeReturnPath(value: string | undefined) {
+	return value?.startsWith("/") && !value.startsWith("//") ? value : "/setup";
+}
+
 function RouteComponent() {
-	const { error } = Route.useSearch();
+	const { error, redirect } = Route.useSearch();
 	const [pending, setPending] = useState<"twitch" | "kick">();
+	const returnPath = safeReturnPath(redirect);
 
 	const signIn = async (provider: "twitch" | "kick") => {
 		setPending(provider);
@@ -29,13 +37,17 @@ function RouteComponent() {
 			provider === "twitch"
 				? await authClient.signIn.social({
 						provider,
-						callbackURL: authRedirectURL("/setup"),
-						errorCallbackURL: authRedirectURL("/login"),
+						callbackURL: authRedirectURL(returnPath),
+						errorCallbackURL: authRedirectURL(
+							`/login?redirect=${encodeURIComponent(returnPath)}`,
+						),
 					})
 				: await authClient.signIn.oauth2({
 						providerId: provider,
-						callbackURL: authRedirectURL("/setup"),
-						errorCallbackURL: authRedirectURL("/login"),
+						callbackURL: authRedirectURL(returnPath),
+						errorCallbackURL: authRedirectURL(
+							`/login?redirect=${encodeURIComponent(returnPath)}`,
+						),
 					});
 		if (result.error) {
 			toast.error(result.error.message ?? `${provider} sign-in failed`);
@@ -56,9 +68,8 @@ function RouteComponent() {
 				<CardContent>
 					{error === "account_not_linked" && (
 						<p className="mb-4 text-destructive">
-							That account matches an existing VISP account. Sign in with
-							the provider you first used, then connect this one from the
-							dashboard.
+							That account matches an existing VISP account. Sign in with the
+							provider you first used, then connect this one from the dashboard.
 						</p>
 					)}
 					<p className="text-muted-foreground">

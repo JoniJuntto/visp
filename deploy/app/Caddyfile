@@ -22,10 +22,12 @@
 		handle /api/chat/live {
 			reverse_proxy 127.0.0.1:3000
 		}
-		handle /api/setup-assistant {
-			reverse_proxy 127.0.0.1:3000
+		handle /api/seppo {
+			reverse_proxy 127.0.0.1:3000 {
+				header_up X-Real-IP {remote_host}
+			}
 		}
-		handle /api/obs/control {
+		handle /api/obs/* {
 			reverse_proxy 127.0.0.1:3000
 		}
 		handle /api/webhooks/kick {

@@ -15,6 +15,10 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { List, ListItem } from "@astryxdesign/core/List";
 import { NumberInput } from "@astryxdesign/core/NumberInput";
+import {
+	SegmentedControl,
+	SegmentedControlItem,
+} from "@astryxdesign/core/SegmentedControl";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Skeleton } from "@astryxdesign/core/Skeleton";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
@@ -40,15 +44,20 @@ import {
 	Trash2Icon,
 	UnlinkIcon,
 } from "lucide-react";
-import { Fragment, type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	downloadSceneCollection,
 	RevealedValue,
 	UrlWithFallback,
 } from "@/components/credential-reveal";
+import {
+	type SeppoClientToolCall,
+	SeppoWidget,
+} from "@/components/seppo-widget";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { probeRelayRtt } from "@/lib/relay";
+import { sanitizeDashboardStatus } from "@/lib/seppo-dashboard";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/dashboard")({
@@ -69,41 +78,190 @@ export const Route = createFileRoute("/_auth/dashboard")({
 });
 
 function RouteComponent() {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
+	const advancedMode = statusQuery.data?.advancedMode ?? false;
+	const [advancedSections, setAdvancedSections] = useState<string[]>([]);
+	const [seppoOpen, setSeppoOpen] = useState(false);
+	const setAdvanced = useMutation(
+		trpc.secrets.setAdvancedMode.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const submitRtt = useMutation(trpc.rtt.submit.mutationOptions());
+
+	useEffect(() => {
+		if (!advancedMode) setAdvancedSections([]);
+	}, [advancedMode]);
+
+	const handleSeppoTool = async (toolCall: SeppoClientToolCall) => {
+		switch (toolCall.toolName) {
+			case "inspectDashboard": {
+				const [secrets, paths, obs, connections] = await Promise.all([
+					queryClient.fetchQuery(trpc.secrets.status.queryOptions()),
+					queryClient.fetchQuery(trpc.paths.list.queryOptions()),
+					queryClient.fetchQuery(trpc.obs.status.queryOptions()),
+					queryClient.fetchQuery(trpc.chat.connections.list.queryOptions()),
+				]);
+				return JSON.stringify(
+					sanitizeDashboardStatus({ secrets, paths, obs, connections }),
+				);
+			}
+			case "showDashboardArea": {
+				const { area } = toolCall.input as {
+					area:
+						| "devices"
+						| "relay"
+						| "obs"
+						| "connections"
+						| "tuning"
+						| "setup";
+				};
+				const targets = {
+					devices: { id: "devices" },
+					obs: { id: "obs-control" },
+					relay: { id: "obs-read", section: "obs-read" },
+					connections: { id: "dashboard-connections", section: "chat" },
+					tuning: { id: "dashboard-tuning", section: "tuning" },
+					setup: { id: "dashboard-setup", section: "reference" },
+				} as const;
+				const target = targets[area];
+				if ("section" in target) {
+					if (!advancedMode) {
+						await setAdvanced.mutateAsync({ advancedMode: true });
+					}
+					setAdvancedSections((current) =>
+						current.includes(target.section)
+							? current
+							: [...current, target.section],
+					);
+				}
+				window.setTimeout(
+					() =>
+						document
+							.getElementById(target.id)
+							?.scrollIntoView({ behavior: "smooth", block: "center" }),
+					100,
+				);
+				return `Opened ${area}`;
+			}
+			case "setDashboardMode": {
+				const { mode } = toolCall.input as {
+					mode: "simple" | "advanced";
+				};
+				await setAdvanced.mutateAsync({ advancedMode: mode === "advanced" });
+				return `Dashboard mode set to ${mode}`;
+			}
+			case "measureRelayConnection": {
+				const { profile } = toolCall.input as {
+					profile: "wired" | "wifi" | "cellular";
+				};
+				const rttMs = await probeRelayRtt(env.VITE_RELAY_PING_URL);
+				const guidance = await submitRtt.mutateAsync({
+					rttMs,
+					profile,
+					method: "browser-probe",
+				});
+				return JSON.stringify({ rttMs, ...guidance });
+			}
+			default:
+				throw new Error(`Unsupported dashboard action: ${toolCall.toolName}`);
+		}
+	};
+
 	return (
-		<Center axis="horizontal">
-			<VStack gap={6} maxWidth={1180} padding={4} width="100%">
-				<HStack gap={6} hAlign="between" vAlign="end" wrap="wrap">
-					<VStack gap={1} maxWidth={560}>
-						<Text color="secondary" type="supporting">
-							Signal path
-						</Text>
-						<Heading level={1}>Relay dashboard</Heading>
-						<Text color="secondary" type="supporting">
-							Devices publish to the relay, OBS reads the feeds, you go on air.
-							Your provider stream key never enters VISP.
-						</Text>
-					</VStack>
-					<ChainStrip />
-				</HStack>
-				<Grid columns={{ minWidth: 440, repeat: "fit" }} gap={4}>
-					<PublishingDevicesCard />
-					<VStack gap={4}>
-						<ObsControlCard />
-						<VStack gap={2}>
+		<>
+			<Center axis="horizontal">
+				<VStack gap={6} maxWidth={1180} padding={4} width="100%">
+					<HStack gap={6} hAlign="between" vAlign="end" wrap="wrap">
+						<VStack gap={1} maxWidth={560}>
 							<Text color="secondary" type="supporting">
-								Advanced
+								Signal path
 							</Text>
-							<CollapsibleGroup hasDividers type="multiple">
-								<CredentialsCard />
-								<ConnectionsCard />
-								<GuidanceCard />
-								<SetupCard />
-							</CollapsibleGroup>
+							<Heading level={1}>Relay dashboard</Heading>
+							<Text color="secondary" type="supporting">
+								Devices publish to the relay, OBS reads the feeds, you go on
+								air. Your provider stream key never enters VISP.
+							</Text>
 						</VStack>
-					</VStack>
-				</Grid>
-			</VStack>
-		</Center>
+						<VStack gap={3} hAlign="end">
+							<SegmentedControl
+								label="Dashboard detail level"
+								value={advancedMode ? "advanced" : "simple"}
+								onChange={(value) =>
+									setAdvanced.mutate({ advancedMode: value === "advanced" })
+								}
+							>
+								<SegmentedControlItem label="Simple" value="simple" />
+								<SegmentedControlItem label="Advanced" value="advanced" />
+							</SegmentedControl>
+							<ChainStrip />
+						</VStack>
+					</HStack>
+					<Grid columns={{ minWidth: 440, repeat: "fit" }} gap={4}>
+						<PublishingDevicesCard
+							onRedoSetup={() =>
+								navigate({ to: "/setup", search: { redo: true } })
+							}
+						/>
+						<VStack gap={4}>
+							<ObsControlCard />
+							{advancedMode ? (
+								<VStack gap={2}>
+									<Text color="secondary" type="supporting">
+										Advanced
+									</Text>
+									<CollapsibleGroup
+										hasDividers
+										type="multiple"
+										value={advancedSections}
+										onChange={(value) => setAdvancedSections(value as string[])}
+									>
+										<CredentialsCard />
+										<ConnectionsCard />
+										<GuidanceCard />
+										<SetupCard />
+									</CollapsibleGroup>
+								</VStack>
+							) : null}
+						</VStack>
+					</Grid>
+				</VStack>
+			</Center>
+			<SeppoWidget
+				context="dashboard"
+				open={seppoOpen}
+				placeholder="Ask about your dashboard…"
+				subtitle="Dashboard help — can inspect status and guide setup"
+				suggestions={[
+					"Why is my device offline?",
+					"Help me connect OBS",
+					"Check my dashboard setup",
+				]}
+				welcome="Hi, I'm Seppo. I can inspect the safe status shown on this dashboard, troubleshoot your signal path, and open the right setup controls."
+				onOpenChange={setSeppoOpen}
+				onToolCall={handleSeppoTool}
+				toolActivityLabel={(part) => {
+					switch (part.type) {
+						case "tool-inspectDashboard":
+							return "Dashboard status checked";
+						case "tool-showDashboardArea":
+							return `Opened ${String((part.input as { area?: string }).area ?? "dashboard")}`;
+						case "tool-setDashboardMode":
+							return `Dashboard mode: ${String((part.input as { mode?: string }).mode ?? "updated")}`;
+						case "tool-measureRelayConnection":
+							return "Relay connection measured";
+						default:
+							return null;
+					}
+				}}
+			/>
+		</>
 	);
 }
 
@@ -517,7 +675,12 @@ function ConnectionsCard() {
 		connections.data?.filter((connection) => connection.linked).length ?? 0;
 
 	return (
-		<AdvancedSection tag="Advanced · Chat" title="Connections" value="chat">
+		<AdvancedSection
+			id="dashboard-connections"
+			tag="Advanced · Chat"
+			title="Connections"
+			value="chat"
+		>
 			<Text color="secondary" type="supporting">
 				Link either provider for login, then opt into its read-only live chat
 				separately.
@@ -616,7 +779,6 @@ function ConnectionsCard() {
 function CredentialsCard() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
-	const navigate = useNavigate();
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
 	const [bundle, setBundle] = useState<SecretBundle | null>(null);
 	const rotate = useMutation(
@@ -723,11 +885,6 @@ function CredentialsCard() {
 						onClick={downloadScene}
 					/>
 				) : null}
-				<Button
-					label="Redo setup"
-					variant="ghost"
-					onClick={() => navigate({ to: "/setup", search: { redo: true } })}
-				/>
 			</HStack>
 		</AdvancedSection>
 	);
@@ -917,7 +1074,7 @@ function PathRow({ path }: { path: PathView }) {
 	);
 }
 
-function PublishingDevicesCard() {
+function PublishingDevicesCard({ onRedoSetup }: { onRedoSetup: () => void }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [label, setLabel] = useState("");
@@ -1037,6 +1194,12 @@ function PublishingDevicesCard() {
 						onClick={() => create.mutate({ label })}
 					/>
 				</HStack>
+				<HStack gap={2} wrap="wrap">
+					<Button label="Redo setup" variant="ghost" onClick={onRedoSetup} />
+					<Text color="secondary" type="supporting">
+						Offers wipe or keep existing devices.
+					</Text>
+				</HStack>
 			</VStack>
 		</Card>
 	);
@@ -1076,6 +1239,7 @@ function GuidanceCard() {
 
 	return (
 		<AdvancedSection
+			id="dashboard-tuning"
 			tag="Advanced · Tuning"
 			title="Connection guidance"
 			value="tuning"
@@ -1148,6 +1312,7 @@ function GuidanceCard() {
 function SetupCard() {
 	return (
 		<AdvancedSection
+			id="dashboard-setup"
 			tag="Advanced · Reference"
 			title="OBS and scene switcher setup"
 			value="reference"

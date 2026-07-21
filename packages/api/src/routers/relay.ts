@@ -19,6 +19,7 @@ import {
 	revokePath,
 	rotatePublishPath,
 	rotateReadSecret,
+	setAdvancedMode,
 	submitRtt,
 } from "../relay";
 import { listSnapshots } from "../snapshots";
@@ -172,7 +173,15 @@ export const relayRoutes = {
 			onboardedAt: ctx.relayUser.onboardedAt?.toISOString() ?? null,
 			deviceCount: ctx.relayUser.deviceCount,
 			streamingSoftware: ctx.relayUser.streamingSoftware,
+			setupUseCase: ctx.relayUser.setupUseCase,
+			streamDestination: ctx.relayUser.streamDestination,
+			advancedMode: ctx.relayUser.advancedMode,
 		})),
+		setAdvancedMode: relayProcedure
+			.input(z.object({ advancedMode: z.boolean() }))
+			.mutation(({ ctx, input }) =>
+				setAdvancedMode(ctx.relayUser.id, input.advancedMode),
+			),
 		rotate: relayProcedure
 			.input(z.object({ kind: z.literal("read") }))
 			.mutation(({ ctx }) => rotateReadSecret(ctx.relayUser.id)),
@@ -191,13 +200,35 @@ export const relayRoutes = {
 		complete: relayProcedure
 			.input(
 				z.object({
-					deviceCount: z.number().int().min(1).max(4),
-					software: z.enum(["obs", "larix", "moblin", "other"]),
+					software: z.enum(["obs", "visp", "larix", "moblin", "other"]),
+					useCase: z.enum([
+						"phone_to_obs",
+						"remote_guest",
+						"multi_cam",
+						"other",
+					]),
+					destination: z.enum(["twitch", "kick", "other"]),
+					advancedMode: z.boolean(),
+					redoMode: z.enum(["additive", "wipe"]).optional(),
 				}),
 			)
-			.mutation(({ ctx, input }) =>
-				completeOnboarding(ctx.relayUser.id, input),
-			),
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await completeOnboarding(ctx.relayUser.id, input);
+				} catch (error) {
+					if (
+						error instanceof Error &&
+						error.message ===
+							"Choose wipe or keep existing devices to redo setup"
+					) {
+						throw new TRPCError({
+							code: "BAD_REQUEST",
+							message: error.message,
+						});
+					}
+					throw error;
+				}
+			}),
 	}),
 	status: router({
 		get: relayProcedure.query(async ({ ctx }) => {

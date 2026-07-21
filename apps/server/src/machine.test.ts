@@ -103,7 +103,10 @@ describe("machine endpoints", () => {
 		expect(LOG_REDACTION_PATHS).toContain("**.password");
 		expect(LOG_REDACTION_PATHS).toContain("**.x-hook-secret");
 		expect(LOG_REDACTION_PATHS).toContain("**.accessToken");
+		expect(LOG_REDACTION_PATHS).toContain("**.access_token");
 		expect(LOG_REDACTION_PATHS).toContain("**.ticket");
+		expect(LOG_REDACTION_PATHS).toContain("**.token");
+		expect(LOG_REDACTION_PATHS).toContain("**.device_code");
 		expect(LOG_REDACTION_PATHS).toContain("**.authorization");
 	});
 

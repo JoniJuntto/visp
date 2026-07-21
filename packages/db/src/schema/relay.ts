@@ -23,6 +23,19 @@ export const streamingSoftware = pgEnum("streaming_software", [
 	"other",
 ]);
 
+export const setupUseCase = pgEnum("setup_use_case", [
+	"phone_to_obs",
+	"remote_guest",
+	"multi_cam",
+	"other",
+]);
+
+export const streamDestination = pgEnum("stream_destination", [
+	"twitch",
+	"kick",
+	"other",
+]);
+
 export const publishOrigin = pgEnum("publish_origin", ["native", "web"]);
 
 export const appUser = pgTable("app_user", {
@@ -36,6 +49,9 @@ export const appUser = pgTable("app_user", {
 	secretsRotatedAt: timestamp("secrets_rotated_at", { withTimezone: true }),
 	deviceCount: integer("device_count"),
 	streamingSoftware: streamingSoftware("streaming_software"),
+	setupUseCase: setupUseCase("setup_use_case"),
+	streamDestination: streamDestination("stream_destination"),
+	advancedMode: boolean("advanced_mode").default(false).notNull(),
 	obsControlTokenId: text("obs_control_token_id").unique(),
 	obsControlTokenHash: text("obs_control_token_hash"),
 	obsDesiredStreaming: boolean("obs_desired_streaming")
