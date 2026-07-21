@@ -3,6 +3,7 @@ import "./test-env";
 import { beforeEach, describe, expect, test } from "bun:test";
 
 const {
+	landingSuggestionResponse,
 	resetSeppoRateLimit,
 	seppoRoutes,
 	takeLandingRequest,
@@ -43,6 +44,28 @@ describe("Seppo assistant", () => {
 			}),
 		);
 		expect(response.status).toBe(400);
+	});
+
+	test("returns fixed landing suggestion responses without generation", async () => {
+		const messages = [
+			{
+				id: "1",
+				role: "user" as const,
+				parts: [{ type: "text" as const, text: "What is VISP for?" }],
+			},
+		];
+		const fixedResponse = landingSuggestionResponse(messages);
+		expect(fixedResponse).toBeDefined();
+
+		const response = await seppoRoutes.handle(
+			new Request("http://localhost/api/seppo", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ context: "landing", messages }),
+			}),
+		);
+		expect(response.status).toBe(200);
+		expect(await response.text()).toContain(fixedResponse as string);
 	});
 
 	test("limits landing generation requests by source IP", () => {
