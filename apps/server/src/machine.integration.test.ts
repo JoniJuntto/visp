@@ -32,10 +32,12 @@ import {
 	rotateReadSecret,
 } from "@VISP/api/relay";
 import { listSnapshots, snapshotKey } from "@VISP/api/snapshots";
+import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import {
 	account,
 	appUser,
+	session as authSession,
 	chatConnection,
 	pathState,
 	relayPath,
@@ -468,6 +470,202 @@ integration("relay PostgreSQL integration", () => {
 			desiredScene: null,
 			scenes: [],
 		});
+	});
+
+	test("authorizes OBS in the browser and scopes device management to its owner", async () => {
+		const data = await seed();
+		const revoked = await createPath("user-a", "revoked");
+		await revokePath("user-a", revoked.id);
+		for (const request of [
+			new Request("http://localhost/api/obs/devices"),
+			new Request("http://localhost/api/obs/devices", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ label: "Unauthorized" }),
+			}),
+			new Request(`http://localhost/api/obs/devices/${data.pathA.id}/source`, {
+				method: "POST",
+			}),
+		]) {
+			expect((await app.handle(request)).status).toBe(401);
+		}
+		await db.insert(authSession).values({
+			id: "browser-session",
+			token: "browser-session-token",
+			userId: "user-a",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+
+		const authRequest = (
+			path: string,
+			body?: Record<string, unknown>,
+			authorization?: string,
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: body ? "POST" : "GET",
+					headers: {
+						...(authorization ? { authorization } : {}),
+						...(body ? { "content-type": "application/json" } : {}),
+					},
+					body: body ? JSON.stringify(body) : undefined,
+				}),
+			);
+
+		const codeResponse = await authRequest("/device/code", {
+			client_id: "visp-obs",
+			scope: "obs",
+		});
+		expect(codeResponse.status).toBe(200);
+		expect(
+			(
+				await authRequest("/device/code", {
+					client_id: "untrusted-client",
+					scope: "obs",
+				})
+			).status,
+		).toBe(400);
+		const code = (await codeResponse.json()) as {
+			device_code: string;
+			user_code: string;
+		};
+		const browserAuthorization = "Bearer browser-session-token";
+		expect(
+			(
+				await authRequest(
+					`/device?user_code=${encodeURIComponent(code.user_code)}`,
+					undefined,
+					browserAuthorization,
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest(
+					"/device/approve",
+					{ userCode: code.user_code },
+					browserAuthorization,
+				)
+			).status,
+		).toBe(200);
+		const tokenResponse = await authRequest("/device/token", {
+			grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+			device_code: code.device_code,
+			client_id: "visp-obs",
+		});
+		expect(tokenResponse.status).toBe(200);
+		const temporary = (await tokenResponse.json()) as { access_token: string };
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(connect.status).toBe(200);
+		const connected = (await connect.json()) as { token: string };
+		expect(
+			await db.query.session.findFirst({
+				where: eq(authSession.token, temporary.access_token),
+			}),
+		).toBeUndefined();
+
+		const list = await app.handle(
+			new Request("http://localhost/api/obs/devices", {
+				headers: { authorization: `Bearer ${connected.token}` },
+			}),
+		);
+		expect(list.status).toBe(200);
+		expect(await list.json()).toMatchObject({
+			account: { handle: "alpha" },
+			devices: [{ id: data.pathA.id, label: "main" }],
+		});
+
+		const forbidden = await app.handle(
+			new Request(`http://localhost/api/obs/devices/${data.pathB.id}/source`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${connected.token}` },
+			}),
+		);
+		expect(forbidden.status).toBe(404);
+
+		const legacyHash = await db.query.appUser.findFirst({
+			columns: { readSecretHash: true },
+			where: eq(appUser.id, "user-a"),
+		});
+		if (!legacyHash) throw new Error("seeded relay user is missing");
+		const legacySource = await app.handle(
+			new Request(`http://localhost/api/obs/devices/${data.pathA.id}/source`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${connected.token}` },
+			}),
+		);
+		expect(legacySource.status).toBe(409);
+		expect(
+			await db.query.appUser.findFirst({
+				columns: { readSecretEncrypted: true, readSecretHash: true },
+				where: eq(appUser.id, "user-a"),
+			}),
+		).toEqual({
+			readSecretEncrypted: null,
+			readSecretHash: legacyHash.readSecretHash,
+		});
+
+		await db
+			.update(appUser)
+			.set({ readSecretHash: null })
+			.where(eq(appUser.id, "user-a"));
+		const source = await app.handle(
+			new Request(`http://localhost/api/obs/devices/${data.pathA.id}/source`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${connected.token}` },
+			}),
+		);
+		expect(source.status).toBe(200);
+		expect(await source.json()).toMatchObject({
+			pathId: data.pathA.id,
+			source: {
+				id: "ffmpeg_source",
+				settings: { visp_path_id: String(data.pathA.id) },
+			},
+		});
+
+		const created = await app.handle(
+			new Request("http://localhost/api/obs/devices", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${connected.token}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({ label: "OBS" }),
+			}),
+		);
+		expect(created.status).toBe(200);
+		expect(await created.json()).toMatchObject({
+			path: { label: "OBS" },
+			urls: { srt: expect.stringContaining("streamid=publish:") },
+		});
+
+		expect(
+			(
+				await app.handle(
+					new Request("http://localhost/api/obs/disconnect", {
+						method: "POST",
+						headers: { authorization: `Bearer ${connected.token}` },
+					}),
+				)
+			).status,
+		).toBe(204);
+		expect(
+			(
+				await app.handle(
+					new Request("http://localhost/api/obs/devices", {
+						headers: { authorization: `Bearer ${connected.token}` },
+					}),
+				)
+			).status,
+		).toBe(401);
 	});
 
 	test("reconciles drift and preserves timestamps when the API fails", async () => {

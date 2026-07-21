@@ -1,5 +1,8 @@
 import { env } from "@VISP/env/web";
-import { genericOAuthClient } from "better-auth/client/plugins";
+import {
+	deviceAuthorizationClient,
+	genericOAuthClient,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 function getServerUrl(url: string) {
@@ -31,10 +34,18 @@ function getServerUrl(url: string) {
 
 	return `http://localhost:3000${normalized}`;
 }
+const authBaseURL =
+	import.meta.env.PROD && typeof window !== "undefined"
+		? `${window.location.origin}/api/auth`
+		: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString();
+
 export const authClient = createAuthClient({
-	baseURL:
-		import.meta.env.PROD && typeof window !== "undefined"
-			? `${window.location.origin}/api/auth`
-			: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
-	plugins: [genericOAuthClient()],
+	baseURL: authBaseURL,
+	plugins: [deviceAuthorizationClient(), genericOAuthClient()],
 });
+
+export const authApiURL = (path: string) =>
+	`${authBaseURL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+
+export const authRedirectURL = (path: string) =>
+	new URL(path, window.location.origin).toString();

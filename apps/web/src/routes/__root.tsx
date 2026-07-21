@@ -1,6 +1,8 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { env } from "@VISP/env/web";
 import { Toaster } from "@VISP/ui/components/sonner";
+import { Theme } from "@astryxdesign/core";
+import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
@@ -88,14 +90,16 @@ function RootDocument() {
 				<HeadContent />
 			</head>
 			<body>
-				{isLanding ? (
-					<Outlet />
-				) : (
-					<div className="grid h-svh grid-rows-[auto_1fr]">
-						<Header />
+				<Theme mode="dark" theme={neutralTheme}>
+					{isLanding ? (
 						<Outlet />
-					</div>
-				)}
+					) : (
+						<div className="grid h-svh grid-rows-[auto_1fr]">
+							<Header />
+							<Outlet />
+						</div>
+					)}
+				</Theme>
 				<CookieBanner />
 				<Toaster richColors />
 				<TanStackRouterDevtools position="bottom-left" />

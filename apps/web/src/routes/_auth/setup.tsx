@@ -1,22 +1,42 @@
 import type { AppRouter } from "@VISP/api/routers/index";
-import { Button, buttonVariants } from "@VISP/ui/components/button";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Center } from "@astryxdesign/core/Center";
+import { ClickableCard } from "@astryxdesign/core/ClickableCard";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
+import { Grid } from "@astryxdesign/core/Grid";
+import { Icon } from "@astryxdesign/core/Icon";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { List, ListItem } from "@astryxdesign/core/List";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@VISP/ui/components/card";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+	SegmentedControl,
+	SegmentedControlItem,
+} from "@astryxdesign/core/SegmentedControl";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
-import { ArrowLeftIcon, DownloadIcon } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeftIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-	CopyButton,
 	downloadSceneCollection,
+	RevealedValue,
 } from "@/components/credential-reveal";
+import { ObsPluginPromo } from "@/components/obs-plugin-promo";
+import {
+	type SeppoClientToolCall,
+	SeppoWidget,
+} from "@/components/seppo-widget";
+import { getObsPluginRelease } from "@/functions/get-obs-releases";
+import {
+	ADVANCED_SETUP_DEFAULTS,
+	getAdvancedSetupAction,
+} from "@/lib/advanced-setup";
+import { legalEntity } from "@/lib/legal";
+import type { ObsPluginRelease } from "@/lib/obs-releases";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/setup")({
@@ -31,25 +51,143 @@ export const Route = createFileRoute("/_auth/setup")({
 			throw redirect({ to: "/dashboard" });
 		}
 	},
+	loader: () => getObsPluginRelease(),
 	component: SetupWizard,
 });
 
 type Outputs = inferRouterOutputs<AppRouter>;
 type SecretBundle = Outputs["onboarding"]["complete"];
-type Software = "obs" | "larix" | "moblin" | "other";
+type SetupUseCase = "phone_to_obs" | "remote_guest" | "multi_cam" | "other";
+type Publisher = "visp" | "web" | "obs" | "larix" | "moblin" | "other";
+type Destination = "twitch" | "kick" | "other";
+type RedoMode = "additive" | "wipe";
+type WizardStep =
+	| "redo"
+	| "useCase"
+	| "publisher"
+	| "destination"
+	| "credentials"
+	| "test";
 
-const SOFTWARE_INFO: Record<
-	Software,
+type StreamingSoftware = "obs" | "visp" | "larix" | "moblin" | "other";
+
+const QUESTION_STEPS: WizardStep[] = [
+	"useCase",
+	"publisher",
+	"destination",
+	"credentials",
+	"test",
+];
+
+const SEPPO_WELCOME =
+	"Hi, I'm Seppo. Tell me what you want to stream with — phone into OBS, a remote guest, multi-cam — and I'll steer the setup. Prefer the VISP phone app to publish and the VISP OBS plugin on your PC so you can sign in and add feeds without pasting URLs.";
+
+const USE_CASE_OPTIONS: {
+	value: SetupUseCase;
+	title: string;
+	description: string;
+}[] = [
 	{
-		name: string;
-		description: string;
-		primary: "srt" | "rtmp";
-		steps: string[];
-	}
+		value: "phone_to_obs",
+		title: "Phone camera into OBS",
+		description:
+			"Use your phone as a camera and mic on your streaming PC via OBS.",
+	},
+	{
+		value: "remote_guest",
+		title: "Friend or another computer",
+		description: "Bring a remote phone or PC feed into your OBS.",
+	},
+	{
+		value: "multi_cam",
+		title: "Multiple phones as cameras",
+		description:
+			"Start with one device now; add more from the dashboard later.",
+	},
+	{
+		value: "other",
+		title: "Talk with Seppo",
+		description:
+			"Not sure yet — open the setup assistant and describe what you need.",
+	},
+];
+
+const PUBLISHER_OPTIONS: {
+	value: Publisher;
+	title: string;
+	description: string;
+	recommended?: boolean;
+}[] = [
+	{
+		value: "visp",
+		title: "VISP mobile app",
+		description:
+			"Recommended. Install, sign in, and VISP links the device automatically — no URL paste.",
+		recommended: true,
+	},
+	{
+		value: "web",
+		title: "Browser publisher",
+		description:
+			"Publish from Chrome, Edge, or Safari over WebRTC — no install.",
+	},
+	{
+		value: "obs",
+		title: "OBS Studio",
+		description: "Publish from a PC or laptop with a custom SRT/RTMP server.",
+	},
+	{
+		value: "larix",
+		title: "Larix Broadcaster",
+		description: "IRL streaming from a phone with a pasted stream URL.",
+	},
+	{
+		value: "moblin",
+		title: "Moblin",
+		description: "IRL streaming from an iPhone with a pasted stream URL.",
+	},
+	{
+		value: "other",
+		title: "Other SRT/RTMP app",
+		description: "Any app with a custom server option.",
+	},
+];
+
+const SIMPLE_PUBLISHER_OPTIONS = PUBLISHER_OPTIONS.filter(
+	(option) =>
+		option.value === "visp" ||
+		option.value === "web" ||
+		option.value === "other",
+);
+
+const DESTINATION_OPTIONS: {
+	value: Destination;
+	title: string;
+	description: string;
+}[] = [
+	{
+		value: "twitch",
+		title: "Twitch",
+		description: "You go live on Twitch from OBS.",
+	},
+	{
+		value: "kick",
+		title: "Kick",
+		description: "You go live on Kick from OBS.",
+	},
+	{
+		value: "other",
+		title: "Somewhere else",
+		description: "YouTube, a custom RTMP destination, or not decided yet.",
+	},
+];
+
+const MANUAL_PUBLISH_STEPS: Record<
+	Exclude<Publisher, "visp" | "web">,
+	{ name: string; primary: "srt" | "rtmp"; steps: string[] }
 > = {
 	obs: {
 		name: "OBS Studio",
-		description: "Streaming from a PC or laptop",
 		primary: "srt",
 		steps: [
 			"On the device that films, open OBS and go to Settings → Stream.",
@@ -59,7 +197,6 @@ const SOFTWARE_INFO: Record<
 	},
 	larix: {
 		name: "Larix Broadcaster",
-		description: "IRL streaming from a phone",
 		primary: "srt",
 		steps: [
 			"Open Larix and go to Settings → Connections → New connection.",
@@ -69,7 +206,6 @@ const SOFTWARE_INFO: Record<
 	},
 	moblin: {
 		name: "Moblin",
-		description: "IRL streaming from an iPhone",
 		primary: "srt",
 		steps: [
 			"Open Moblin and go to Settings → Streams → Create stream.",
@@ -77,8 +213,7 @@ const SOFTWARE_INFO: Record<
 		],
 	},
 	other: {
-		name: "Streamlabs / something else",
-		description: "Any app with a custom server option",
+		name: "your streaming app",
 		primary: "rtmp",
 		steps: [
 			'In your app\'s stream settings, choose "Custom" or "Custom RTMP" as the service.',
@@ -88,383 +223,900 @@ const SOFTWARE_INFO: Record<
 	},
 };
 
+const SEPPO_SUGGESTIONS = [
+	"Use my phone as a camera in OBS",
+	"Bring a friend's feed into my stream",
+	"Which app should I publish with?",
+];
+
+const STEP_LABELS: Record<WizardStep, string> = {
+	redo: "redo",
+	useCase: "use case",
+	publisher: "publisher",
+	destination: "destination",
+	credentials: "stream links",
+	test: "connection test",
+};
+
+function optionTitle(
+	options: { value: string; title: string }[],
+	value: unknown,
+) {
+	return (
+		options.find((option) => option.value === value)?.title ?? String(value)
+	);
+}
+
+function toolActivityLabel(part: { type: string; input?: unknown }) {
+	const input = (part.input ?? {}) as Record<string, unknown>;
+	switch (part.type) {
+		case "tool-setUseCase":
+			return `Use case: ${optionTitle(USE_CASE_OPTIONS, input.useCase)}`;
+		case "tool-setPublisher":
+			return `Publisher: ${optionTitle(PUBLISHER_OPTIONS, input.publisher)}`;
+		case "tool-setDestination":
+			return `Destination: ${optionTitle(DESTINATION_OPTIONS, input.destination)}`;
+		case "tool-setAdvancedMode":
+			return input.advancedMode ? "Advanced mode on" : "Advanced mode off";
+		case "tool-goToStep":
+			return `Moved to ${STEP_LABELS[input.step as WizardStep] ?? String(input.step)}`;
+		case "tool-completeSetup":
+			return "Requested stream link creation";
+		default:
+			return null;
+	}
+}
+
+function publisherToSoftware(publisher: Publisher): StreamingSoftware {
+	if (publisher === "web") return "visp";
+	return publisher;
+}
+
+function stepIndex(step: WizardStep): number {
+	const index = QUESTION_STEPS.indexOf(step);
+	return index === -1 ? 0 : index;
+}
+
 function OptionCard({
 	title,
 	description,
+	badge,
 	onClick,
 }: {
 	title: string;
 	description: string;
+	badge?: string;
 	onClick: () => void;
 }) {
 	return (
-		<button
-			className="flex flex-col gap-1 border p-4 text-left transition-colors hover:border-primary hover:bg-accent"
-			type="button"
-			onClick={onClick}
-		>
-			<strong>{title}</strong>
-			<span className="text-muted-foreground">{description}</span>
-		</button>
+		<ClickableCard label={title} onClick={onClick}>
+			<VStack gap={1}>
+				<HStack gap={2} vAlign="center" wrap="wrap">
+					<Text type="label">{title}</Text>
+					{badge ? (
+						<Text color="secondary" type="supporting">
+							{badge}
+						</Text>
+					) : null}
+				</HStack>
+				<Text color="secondary" type="supporting">
+					{description}
+				</Text>
+			</VStack>
+		</ClickableCard>
 	);
 }
 
-function DeviceStep({ onPick }: { onPick: (count: number) => void }) {
-	const [pickingCount, setPickingCount] = useState(false);
-
+function BackButton({ onBack }: { onBack: () => void }) {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>How many devices will stream at the same time?</CardTitle>
-				<CardDescription>
-					A device is anything that sends video — a phone, a camera rig, a
-					laptop. You can add more later.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-3">
-				<OptionCard
-					description="One phone or one computer sends the video."
-					title="Just one device"
-					onClick={() => onPick(1)}
-				/>
-				{pickingCount ? (
-					<div className="flex flex-col gap-2 border p-4">
-						<strong>How many?</strong>
-						<div className="flex gap-2">
-							{[2, 3, 4].map((count) => (
-								<Button
-									key={count}
-									variant="outline"
-									onClick={() => onPick(count)}
-								>
-									{count} devices
-								</Button>
-							))}
-						</div>
-					</div>
-				) : (
-					<OptionCard
-						description="For example a main phone plus a backup phone or second angle."
-						title="Multiple at the same time"
-						onClick={() => setPickingCount(true)}
-					/>
-				)}
-			</CardContent>
-		</Card>
+		<Button
+			icon={<Icon color="inherit" icon={ArrowLeftIcon} size="sm" />}
+			label="Back"
+			variant="ghost"
+			onClick={onBack}
+		/>
 	);
 }
 
-function SoftwareStep({
+function StepIntro({
+	title,
+	description,
+}: {
+	title: string;
+	description: string;
+}) {
+	return (
+		<VStack gap={1}>
+			<Heading level={2}>{title}</Heading>
+			<Text color="secondary">{description}</Text>
+		</VStack>
+	);
+}
+
+function NumberedSteps({ steps }: { steps: string[] }) {
+	return (
+		<List listStyle="decimal">
+			{steps.map((step) => (
+				<ListItem key={step} label={step} />
+			))}
+		</List>
+	);
+}
+
+function ExternalLinkButton({ href, label }: { href: string; label: string }) {
+	return (
+		<Button
+			icon={<Icon color="inherit" icon={ExternalLinkIcon} size="sm" />}
+			label={label}
+			variant="secondary"
+			onClick={() => {
+				if (href.startsWith("/")) {
+					window.location.assign(href);
+					return;
+				}
+				window.open(href, "_blank", "noreferrer");
+			}}
+		/>
+	);
+}
+
+function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description="Choose whether to keep your current devices or revoke them and start clean."
+				title="Redo setup"
+			/>
+			<OptionCard
+				description="Keep existing linked devices and their URLs. Setup refreshes credentials for your primary device."
+				title="Keep existing devices"
+				onClick={() => onPick("additive")}
+			/>
+			<OptionCard
+				description="Revoke every device path, create one fresh device, and rotate publish and OBS read credentials."
+				title="Wipe and start over"
+				onClick={() => onPick("wipe")}
+			/>
+			<Banner
+				description="Wipe disconnects native app bindings and invalidates old publish URLs."
+				status="warning"
+				title="Wipe cannot be undone"
+			/>
+		</VStack>
+	);
+}
+
+function UseCaseStep({ onPick }: { onPick: (useCase: SetupUseCase) => void }) {
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description="VISP relays one camera into OBS first. You can add more devices later. Stuck? Pick Talk with Seppo or tap the chat ball."
+				title="What do you want VISP for?"
+			/>
+			{USE_CASE_OPTIONS.map((option) => (
+				<OptionCard
+					key={option.value}
+					description={option.description}
+					title={option.title}
+					onClick={() => onPick(option.value)}
+				/>
+			))}
+		</VStack>
+	);
+}
+
+function PublisherStep({
 	onBack,
 	onPick,
 }: {
 	onBack: () => void;
-	onPick: (software: Software) => void;
+	onPick: (publisher: Publisher) => void;
 }) {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Which app will you stream with?</CardTitle>
-				<CardDescription>
-					We'll tailor the instructions to your app.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-col gap-3">
-				{(Object.keys(SOFTWARE_INFO) as Software[]).map((value) => (
-					<OptionCard
-						key={value}
-						description={SOFTWARE_INFO[value].description}
-						title={SOFTWARE_INFO[value].name}
-						onClick={() => onPick(value)}
-					/>
-				))}
-				<Button className="self-start" variant="ghost" onClick={onBack}>
-					<ArrowLeftIcon data-icon="inline-start" />
-					Back
-				</Button>
-			</CardContent>
-		</Card>
+		<VStack gap={4}>
+			<StepIntro
+				description="Choose the VISP app or browser for guided setup. Next you'll pull the feed into OBS with the VISP OBS plugin."
+				title="How will you send video?"
+			/>
+			{SIMPLE_PUBLISHER_OPTIONS.map((option) => (
+				<OptionCard
+					key={option.value}
+					badge={option.recommended ? "Recommended" : undefined}
+					description={option.description}
+					title={option.title}
+					onClick={() => onPick(option.value)}
+				/>
+			))}
+			<HStack>
+				<BackButton onBack={onBack} />
+			</HStack>
+		</VStack>
 	);
 }
 
-function DeviceLinkBlock({
-	index,
-	primary,
-	fallback,
-	fallbackLabel,
-}: {
-	index: number;
-	primary: string;
-	fallback: string;
-	fallbackLabel: string;
-}) {
-	const [showFallback, setShowFallback] = useState(false);
-
-	return (
-		<div className="flex flex-col gap-3 border p-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<strong>Device {index + 1}</strong>
-				<CopyButton size="default" value={primary} variant="default">
-					Copy link for device {index + 1}
-				</CopyButton>
-			</div>
-			<code className="break-all text-muted-foreground text-xs">{primary}</code>
-			{showFallback ? (
-				<div className="flex flex-col gap-2 border-t pt-3">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<span className="text-muted-foreground">{fallbackLabel}</span>
-						<CopyButton value={fallback} />
-					</div>
-					<code className="break-all text-muted-foreground text-xs">
-						{fallback}
-					</code>
-				</div>
-			) : (
-				<button
-					className="self-start text-muted-foreground text-sm underline underline-offset-4 hover:text-foreground"
-					type="button"
-					onClick={() => setShowFallback(true)}
-				>
-					Link not working? Show a backup link
-				</button>
-			)}
-		</div>
-	);
-}
-
-function CredentialsStep({
-	deviceCount,
-	software,
-	redo,
+function DestinationStep({
 	onBack,
+	onPick,
 }: {
-	deviceCount: number;
-	software: Software;
-	redo: boolean;
 	onBack: () => void;
+	onPick: (destination: Destination) => void;
+}) {
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description="This only shapes guidance — your relay links stay the same either way."
+				title="Where do you go live?"
+			/>
+			{DESTINATION_OPTIONS.map((option) => (
+				<OptionCard
+					key={option.value}
+					description={option.description}
+					title={option.title}
+					onClick={() => onPick(option.value)}
+				/>
+			))}
+			<HStack>
+				<BackButton onBack={onBack} />
+			</HStack>
+		</VStack>
+	);
+}
+
+function TestStreamStep({
+	onBack,
+	onDone,
+}: {
+	onBack: () => void;
+	onDone: () => void;
+}) {
+	const trpc = useTRPC();
+	const paths = useQuery(
+		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5_000 }),
+	);
+	const path = paths.data?.[0];
+	const live = Boolean(path?.publishing && !path.stale);
+	const unknown = Boolean(path?.stale);
+
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description="Start publishing from your phone, browser, or app. If you installed the VISP OBS plugin, open Tools → VISP and add the device to your scene while you wait."
+				title="Test your connection"
+			/>
+			<Card variant="muted">
+				<HStack gap={3} vAlign="center" wrap="wrap">
+					{live ? (
+						<>
+							<StatusDot isPulsing label="Live" variant="error" />
+							<Text type="label">Live — VISP sees your publish feed</Text>
+						</>
+					) : unknown ? (
+						<>
+							<StatusDot label="Status unknown" variant="warning" />
+							<Text type="label">
+								Status unknown — keep the publisher running
+							</Text>
+						</>
+					) : (
+						<>
+							<StatusDot label="Offline" variant="neutral" />
+							<Text type="label">
+								Offline — waiting for a publish connection
+							</Text>
+						</>
+					)}
+				</HStack>
+				{path?.publishLastConnectedAt ? (
+					<Text color="secondary" type="supporting">
+						Last connected{" "}
+						{new Date(path.publishLastConnectedAt)
+							.toISOString()
+							.replace("T", " ")
+							.slice(0, 19)}{" "}
+						UTC
+					</Text>
+				) : (
+					<Text color="secondary" type="supporting">
+						Never connected yet
+					</Text>
+				)}
+			</Card>
+			{live ? (
+				<Banner
+					description="You're ready for the dashboard. Add more devices there if you need multi-cam."
+					status="success"
+					title="Connection looks good"
+				/>
+			) : (
+				<Banner
+					description="You can skip and finish setup anyway — the dashboard shows live status too."
+					status="info"
+					title="No live feed yet"
+				/>
+			)}
+			<HStack gap={2} wrap="wrap">
+				<Button
+					label={live ? "Go to my dashboard" : "Skip and go to dashboard"}
+					variant="primary"
+					onClick={onDone}
+				/>
+				<BackButton onBack={onBack} />
+			</HStack>
+		</VStack>
+	);
+}
+
+type WizardActions = {
+	setUseCase: (useCase: SetupUseCase) => void;
+	setPublisher: (publisher: Publisher) => void;
+	setDestination: (destination: Destination) => void;
+	setAdvancedMode: (advancedMode: boolean) => void;
+	goToStep: (step: WizardStep) => void;
+	requestComplete: () => void;
+};
+
+function SetupWizard() {
+	const { redo } = Route.useSearch();
+	const obsRelease = Route.useLoaderData();
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+	const status = useQuery(trpc.secrets.status.queryOptions());
+	const [step, setStep] = useState<WizardStep>(redo ? "redo" : "useCase");
+	const [redoMode, setRedoMode] = useState<RedoMode | null>(null);
+	const [useCase, setUseCase] = useState<SetupUseCase>("phone_to_obs");
+	const [publisher, setPublisher] = useState<Publisher>("visp");
+	const [destination, setDestination] = useState<Destination>("twitch");
+	const [bundle, setBundle] = useState<SecretBundle | null>(null);
+	const [pendingCreate, setPendingCreate] = useState(false);
+	const [seppoOpen, setSeppoOpen] = useState(false);
+
+	const openAdvancedDashboard = useCallback(async () => {
+		await queryClient.invalidateQueries();
+		await navigate({ to: "/dashboard" });
+	}, [navigate, queryClient]);
+
+	const completeAdvanced = useMutation(
+		trpc.onboarding.complete.mutationOptions({
+			onSuccess: openAdvancedDashboard,
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const enableAdvanced = useMutation(
+		trpc.secrets.setAdvancedMode.mutationOptions({
+			onSuccess: openAdvancedDashboard,
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const openingAdvanced =
+		completeAdvanced.isPending || enableAdvanced.isPending;
+
+	const resetSimpleSetup = useCallback(() => {
+		setStep(redo ? "redo" : "useCase");
+		setRedoMode(null);
+		setUseCase("phone_to_obs");
+		setPublisher("visp");
+		setDestination("twitch");
+		setBundle(null);
+		setPendingCreate(false);
+	}, [redo]);
+
+	const setSetupMode = useCallback(
+		(advanced: boolean) => {
+			if (!advanced) {
+				resetSimpleSetup();
+				return;
+			}
+
+			if (!status.data || openingAdvanced) return;
+			if (
+				getAdvancedSetupAction(status.data.onboardedAt) === "enable-existing"
+			) {
+				enableAdvanced.mutate({ advancedMode: true });
+				return;
+			}
+			completeAdvanced.mutate(ADVANCED_SETUP_DEFAULTS);
+		},
+		[
+			completeAdvanced,
+			enableAdvanced,
+			openingAdvanced,
+			resetSimpleSetup,
+			status.data,
+		],
+	);
+
+	const goToStep = useCallback(
+		(next: WizardStep) => {
+			if (next === "redo" && !redo) return;
+			setStep(next);
+		},
+		[redo],
+	);
+
+	const pickUseCase = useCallback((value: SetupUseCase) => {
+		setUseCase(value);
+		if (value === "other") {
+			setSeppoOpen(true);
+			return;
+		}
+		setStep("publisher");
+	}, []);
+
+	const actions: WizardActions = {
+		setUseCase: pickUseCase,
+		setPublisher: (value) => {
+			setPublisher(value);
+			setStep("destination");
+		},
+		setDestination: (value) => {
+			setDestination(value);
+			setStep("credentials");
+		},
+		setAdvancedMode: setSetupMode,
+		goToStep,
+		requestComplete: () => {
+			setStep("credentials");
+			setPendingCreate(true);
+		},
+	};
+	const handleSeppoTool = (toolCall: SeppoClientToolCall) => {
+		switch (toolCall.toolName) {
+			case "setUseCase": {
+				const { useCase } = toolCall.input as { useCase: SetupUseCase };
+				actions.setUseCase(useCase);
+				return `Set use case to ${useCase}`;
+			}
+			case "setPublisher": {
+				const { publisher } = toolCall.input as { publisher: Publisher };
+				actions.setPublisher(publisher);
+				return `Set publisher to ${publisher}`;
+			}
+			case "setDestination": {
+				const { destination } = toolCall.input as {
+					destination: Destination;
+				};
+				actions.setDestination(destination);
+				return `Set destination to ${destination}`;
+			}
+			case "setAdvancedMode": {
+				const { advancedMode: enabled } = toolCall.input as {
+					advancedMode: boolean;
+				};
+				actions.setAdvancedMode(enabled);
+				return `Advanced mode ${enabled ? "on" : "off"}`;
+			}
+			case "goToStep": {
+				const { step: next } = toolCall.input as { step: WizardStep };
+				actions.goToStep(next);
+				return `Moved to ${next}`;
+			}
+			case "completeSetup":
+				actions.requestComplete();
+				return "Requested link creation — user confirms with Create my stream links";
+			default:
+				throw new Error(`Unsupported setup action: ${toolCall.toolName}`);
+		}
+	};
+
+	const questionNumber = step === "redo" ? 0 : stepIndex(step) + 1;
+	const questionTotal = QUESTION_STEPS.length;
+
+	return (
+		<>
+			<Center axis="horizontal">
+				<VStack
+					className="pb-24"
+					gap={6}
+					maxWidth={720}
+					padding={4}
+					width="100%"
+				>
+					<HStack gap={4} hAlign="between" vAlign="start" wrap="wrap">
+						<VStack gap={1} maxWidth={640}>
+							<Text color="secondary" type="supporting">
+								{step === "redo"
+									? "Redo setup"
+									: `Step ${questionNumber} of ${questionTotal}`}
+							</Text>
+							<Heading level={1}>Let's get you streaming</Heading>
+							<Text color="secondary">
+								Real-world questions, one device to start, then your stream
+								links. The VISP mobile app links automatically.
+							</Text>
+						</VStack>
+						<VStack gap={1} hAlign="end">
+							<SegmentedControl
+								isDisabled={openingAdvanced || !status.data}
+								label="Setup mode"
+								value={openingAdvanced ? "advanced" : "simple"}
+								onChange={(value) => setSetupMode(value === "advanced")}
+							>
+								<SegmentedControlItem label="Simple" value="simple" />
+								<SegmentedControlItem label="Advanced" value="advanced" />
+							</SegmentedControl>
+							{openingAdvanced ? (
+								<Text color="secondary" type="supporting">
+									Opening advanced dashboard…
+								</Text>
+							) : null}
+						</VStack>
+					</HStack>
+
+					<VStack gap={4}>
+						{step === "redo" ? (
+							<RedoStep
+								onPick={(mode) => {
+									setRedoMode(mode);
+									setStep("useCase");
+								}}
+							/>
+						) : null}
+						{step === "useCase" ? <UseCaseStep onPick={pickUseCase} /> : null}
+						{step === "publisher" ? (
+							<PublisherStep
+								onBack={() => setStep("useCase")}
+								onPick={(value) => {
+									setPublisher(value);
+									setStep("destination");
+								}}
+							/>
+						) : null}
+						{step === "destination" ? (
+							<DestinationStep
+								onBack={() => setStep("publisher")}
+								onPick={(value) => {
+									setDestination(value);
+									setStep("credentials");
+								}}
+							/>
+						) : null}
+						{step === "credentials" ? (
+							<CredentialsStepWithCreateRef
+								bundle={bundle}
+								destination={destination}
+								obsRelease={obsRelease}
+								pendingCreate={pendingCreate}
+								publisher={publisher}
+								redoMode={redoMode}
+								useCase={useCase}
+								onBack={() => setStep("destination")}
+								onBundle={setBundle}
+								onContinueToTest={() => setStep("test")}
+								onPendingCreateHandled={() => setPendingCreate(false)}
+							/>
+						) : null}
+						{step === "test" ? (
+							<TestStreamStep
+								onBack={() => setStep("credentials")}
+								onDone={() => navigate({ to: "/dashboard" })}
+							/>
+						) : null}
+					</VStack>
+				</VStack>
+			</Center>
+			<SeppoWidget
+				context="setup"
+				open={seppoOpen}
+				placeholder="Describe your streaming setup…"
+				subtitle="Setup help — can fill answers and move steps"
+				suggestions={SEPPO_SUGGESTIONS}
+				welcome={SEPPO_WELCOME}
+				onOpenChange={setSeppoOpen}
+				onToolCall={handleSeppoTool}
+				toolActivityLabel={toolActivityLabel}
+			/>
+		</>
+	);
+}
+
+function CredentialsStepWithCreateRef({
+	bundle,
+	destination,
+	obsRelease,
+	pendingCreate,
+	publisher,
+	redoMode,
+	useCase,
+	onBack,
+	onBundle,
+	onContinueToTest,
+	onPendingCreateHandled,
+}: {
+	bundle: SecretBundle | null;
+	destination: Destination;
+	obsRelease: ObsPluginRelease | null;
+	pendingCreate: boolean;
+	publisher: Publisher;
+	redoMode: RedoMode | null;
+	useCase: SetupUseCase;
+	onBack: () => void;
+	onBundle: (bundle: SecretBundle) => void;
+	onContinueToTest: () => void;
+	onPendingCreateHandled: () => void;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
-	const [bundle, setBundle] = useState<SecretBundle | null>(null);
 	const complete = useMutation(
 		trpc.onboarding.complete.mutationOptions({
 			onSuccess: async (result) => {
-				setBundle(result);
+				onBundle(result);
 				await queryClient.invalidateQueries();
 			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const info = SOFTWARE_INFO[software];
 
-	if (!bundle) {
+	const createLinks = useCallback(() => {
+		complete.mutate({
+			software: publisherToSoftware(publisher),
+			useCase,
+			destination,
+			advancedMode: false,
+			...(redoMode ? { redoMode } : {}),
+		});
+	}, [complete, destination, publisher, redoMode, useCase]);
+
+	useEffect(() => {
+		if (!pendingCreate || bundle || complete.isPending) return;
+		createLinks();
+		onPendingCreateHandled();
+	}, [
+		bundle,
+		complete.isPending,
+		createLinks,
+		onPendingCreateHandled,
+		pendingCreate,
+	]);
+
+	if (bundle) {
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>Ready to create your stream links</CardTitle>
-					<CardDescription>
-						{deviceCount === 1 ? "One device" : `${deviceCount} devices`} ·{" "}
-						{info.name}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<p className="text-muted-foreground">
-						You'll get one link per device to paste into {info.name}, plus a
-						ready-made file for OBS on your streaming PC.
-					</p>
-					{redo ? (
-						<p className="border border-caution/40 bg-caution/10 p-3 text-caution">
-							Legacy paths will receive independent device URLs. Existing linked
-							devices keep their current URLs.
-						</p>
-					) : null}
-					<div className="flex flex-wrap gap-2">
-						<Button
-							disabled={complete.isPending}
-							onClick={() => complete.mutate({ deviceCount, software })}
-						>
-							{complete.isPending
-								? "Creating links..."
-								: "Create my stream links"}
-						</Button>
-						<Button variant="ghost" onClick={onBack}>
-							<ArrowLeftIcon data-icon="inline-start" />
-							Back
-						</Button>
-					</div>
-				</CardContent>
-			</Card>
+			<CredentialsReady
+				bundle={bundle}
+				destination={destination}
+				obsRelease={obsRelease}
+				publisher={publisher}
+				onContinue={onContinueToTest}
+			/>
 		);
 	}
 
-	const publishUrls = bundle.urls.publish ?? [];
-
 	return (
-		<div className="flex flex-col gap-6">
-			<div className="border p-4">
-				<strong>Your device links are ready</strong>
-				<p className="mt-1 text-muted-foreground">
-					They stay hidden on the dashboard until you choose Reveal, and each
-					device can be rotated independently.
-				</p>
-			</div>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>
-						{deviceCount === 1
-							? "On your streaming device"
-							: "On each streaming device"}
-					</CardTitle>
-					<CardDescription>
-						{deviceCount === 1
-							? "Paste this link into your app:"
-							: "Each device gets its own link — don't share one link between two devices."}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-4">
-					<ol className="list-decimal pl-5 text-muted-foreground">
-						{info.steps.map((step) => (
-							<li key={step}>{step}</li>
-						))}
-					</ol>
-					{publishUrls.slice(0, deviceCount).map((url, index) => (
-						<DeviceLinkBlock
-							key={url.slug}
-							fallback={info.primary === "srt" ? url.rtmp : url.srt}
-							fallbackLabel={
-								info.primary === "srt"
-									? "Backup link (RTMP — use if the main one won't connect)"
-									: "Backup link (SRT — better for shaky networks, if your app supports it)"
-							}
-							index={index}
-							primary={info.primary === "srt" ? url.srt : url.rtmp}
-						/>
-					))}
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>On your streaming PC (OBS)</CardTitle>
-					<CardDescription>
-						Choose how you want to add your{" "}
-						{deviceCount === 1 ? "feed" : "feeds"} to OBS.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="grid gap-4 sm:grid-cols-2">
-					<Card size="sm">
-						<CardHeader>
-							<CardTitle>By hand</CardTitle>
-						</CardHeader>
-						<CardContent className="flex flex-col gap-4">
-							<ol className="list-decimal pl-5 text-muted-foreground">
-								<li>In OBS, add a Media Source.</li>
-								<li>Turn off the “Local File” checkbox.</li>
-								<li>Paste the URL below. To "Input" field</li>
-							</ol>
-							{bundle.urls.read.slice(0, deviceCount).map((url, index) => (
-								<div className="flex flex-col gap-2" key={url.slug}>
-									<div className="flex items-center justify-between gap-2">
-										<strong>
-											{deviceCount === 1
-												? "Media source URL"
-												: `Device ${index + 1}`}
-										</strong>
-										<CopyButton value={url.srt} />
-									</div>
-									<code className="break-all text-muted-foreground text-xs">
-										{url.srt}
-									</code>
-								</div>
-							))}
-						</CardContent>
-					</Card>
-
-					<Card size="sm">
-						<CardHeader>
-							<CardTitle>Download the scene file</CardTitle>
-						</CardHeader>
-						<CardContent className="flex h-full flex-col gap-4">
-							<ol className="list-decimal pl-5 text-muted-foreground">
-								<li>Download the file below.</li>
-								<li>
-									In OBS, open Scene Collection → Import and pick the downloaded
-									file.
-								</li>
-								<li>
-									Your {deviceCount === 1 ? "device shows" : "devices show"} up
-									as ready-made scenes.
-								</li>
-							</ol>
-							{bundle.sceneCollection ? (
-								<Button
-									className="mt-auto self-start"
-									variant="secondary"
-									onClick={() =>
-										downloadSceneCollection(bundle.sceneCollection)
-									}
-								>
-									<DownloadIcon data-icon="inline-start" />
-									Download OBS scene file
-								</Button>
-							) : null}
-						</CardContent>
-					</Card>
-				</CardContent>
-			</Card>
-
-			<Link className={`${buttonVariants()} self-start`} to="/dashboard">
-				Go to my dashboard
-			</Link>
-		</div>
+		<CredentialsPrompt
+			isLoading={complete.isPending}
+			redoMode={redoMode}
+			useCase={useCase}
+			onBack={onBack}
+			onCreate={createLinks}
+		/>
 	);
 }
 
-function SetupWizard() {
-	const { redo } = Route.useSearch();
-	const [step, setStep] = useState(0);
-	const [deviceCount, setDeviceCount] = useState(1);
-	const [software, setSoftware] = useState<Software>("obs");
+function CredentialsPrompt({
+	isLoading,
+	redoMode,
+	useCase,
+	onBack,
+	onCreate,
+}: {
+	isLoading: boolean;
+	redoMode: RedoMode | null;
+	useCase: SetupUseCase;
+	onBack: () => void;
+	onCreate: () => void;
+}) {
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description="One device link for publishing, plus OBS read credentials for your streaming PC."
+				title="Ready to create your stream links"
+			/>
+			{useCase === "multi_cam" ? (
+				<Banner
+					description="Setup creates one device now. Add more phones from the dashboard when you're ready."
+					status="info"
+					title="Multi-cam starts with one feed"
+				/>
+			) : null}
+			{redoMode === "wipe" ? (
+				<Banner
+					status="warning"
+					title="Wipe will revoke existing devices"
+					description="Native app bindings and old publish URLs stop working."
+				/>
+			) : null}
+			{redoMode === "additive" ? (
+				<Banner
+					status="info"
+					title="Existing devices stay linked"
+					description="Primary-device credentials are refreshed; other paths keep their URLs."
+				/>
+			) : null}
+			<HStack gap={2} wrap="wrap">
+				<Button
+					isLoading={isLoading}
+					label="Create my stream links"
+					variant="primary"
+					onClick={onCreate}
+				/>
+				<BackButton onBack={onBack} />
+			</HStack>
+		</VStack>
+	);
+}
+
+function CredentialsReady({
+	bundle,
+	destination,
+	obsRelease,
+	publisher,
+	onContinue,
+}: {
+	bundle: SecretBundle;
+	destination: Destination;
+	obsRelease: ObsPluginRelease | null;
+	publisher: Publisher;
+	onContinue: () => void;
+}) {
+	const publishUrl = bundle.urls.publish[0];
+	const readUrl = bundle.urls.read[0];
+	const manual =
+		publisher !== "visp" && publisher !== "web"
+			? MANUAL_PUBLISH_STEPS[publisher]
+			: null;
+	const primary =
+		manual?.primary === "rtmp"
+			? (publishUrl?.rtmp ?? "")
+			: (publishUrl?.srt ?? "");
+	const destinationLabel =
+		destination === "twitch"
+			? "Twitch"
+			: destination === "kick"
+				? "Kick"
+				: "your platform";
 
 	return (
-		<main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
-			<header className="flex flex-col gap-1">
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					Step {step + 1} of 3
-				</p>
-				<h1 className="font-bold font-display text-3xl uppercase tracking-tight">
-					Let's get you streaming
-				</h1>
-				<p className="text-muted-foreground">
-					Three quick questions, then you get your stream links.
-				</p>
-			</header>
-			{step === 0 ? (
-				<DeviceStep
-					onPick={(count) => {
-						setDeviceCount(count);
-						setStep(1);
-					}}
-				/>
+		<VStack gap={6}>
+			<Banner
+				description="They stay hidden on the dashboard until you choose Reveal. Each device can be rotated independently later."
+				status="success"
+				title="Your device link is ready"
+			/>
+
+			{publisher === "visp" ? (
+				<VStack gap={3}>
+					<StepIntro
+						description="The VISP app creates the publish link automatically after you sign in — no paste required."
+						title="On your phone"
+					/>
+					<NumberedSteps
+						steps={[
+							"Install the VISP beta for iOS (TestFlight) or Android (Play open testing).",
+							"Open the app and sign in with the same Twitch or Kick account.",
+							"Allow camera and mic — VISP claims this device and starts publishing over SRT.",
+						]}
+					/>
+					<HStack gap={2} wrap="wrap">
+						<ExternalLinkButton
+							href={legalEntity.iosTestFlightUrl}
+							label="Join on TestFlight"
+						/>
+						<ExternalLinkButton
+							href={legalEntity.androidPlayTestingUrl}
+							label="Join on Google Play"
+						/>
+						<ExternalLinkButton href="/download" label="All downloads" />
+					</HStack>
+				</VStack>
 			) : null}
-			{step === 1 ? (
-				<SoftwareStep
-					onBack={() => setStep(0)}
-					onPick={(picked) => {
-						setSoftware(picked);
-						setStep(2);
-					}}
-				/>
+
+			{publisher === "web" ? (
+				<VStack gap={3}>
+					<StepIntro
+						description="Open the browser publisher, sign in, and start the camera — no native install."
+						title="In your browser"
+					/>
+					<NumberedSteps
+						steps={[
+							"Open the VISP browser publisher.",
+							"Sign in with the same Twitch or Kick account.",
+							"Allow camera and mic, then start publishing.",
+						]}
+					/>
+					<HStack gap={2} wrap="wrap">
+						<ExternalLinkButton
+							href={legalEntity.browserAppUrl}
+							label="Open browser publisher"
+						/>
+					</HStack>
+				</VStack>
 			) : null}
-			{step === 2 ? (
-				<CredentialsStep
-					deviceCount={deviceCount}
-					redo={redo}
-					software={software}
-					onBack={() => setStep(1)}
-				/>
+
+			{manual && publishUrl ? (
+				<VStack gap={3}>
+					<StepIntro
+						description={
+							publisher === "obs"
+								? "You can paste a publish URL into OBS Settings → Stream, or let the VISP OBS plugin create an OBS publishing device after you sign in."
+								: `Paste this link into ${manual.name}. Publishing can be streaming software, a phone app, or any SRT-capable device.`
+						}
+						title="On your publishing device"
+					/>
+					<NumberedSteps steps={manual.steps} />
+					<RevealedValue label="Publish link" value={primary} />
+				</VStack>
 			) : null}
-		</main>
+
+			<VStack gap={3}>
+				<StepIntro
+					description={`Install the VISP OBS plugin to pull feeds into OBS and go live to ${destinationLabel} without hand-pasting Media Source URLs.`}
+					title="On your streaming PC (OBS)"
+				/>
+				<ObsPluginPromo
+					destinationLabel={destinationLabel}
+					release={obsRelease}
+				/>
+				<Collapsible
+					defaultIsOpen={false}
+					trigger={
+						<Text color="secondary" type="supporting">
+							Prefer not to install the plugin? Manual OBS setup
+						</Text>
+					}
+				>
+					<Grid columns={{ minWidth: 280, repeat: "fit" }} gap={3}>
+						<Card>
+							<VStack gap={3}>
+								<Heading level={3}>By hand</Heading>
+								<NumberedSteps
+									steps={[
+										"In OBS, add a Media Source.",
+										"Turn off the “Local File” checkbox.",
+										'Paste the URL below into the "Input" field.',
+									]}
+								/>
+								{readUrl ? (
+									<RevealedValue label="Media source URL" value={readUrl.srt} />
+								) : null}
+							</VStack>
+						</Card>
+
+						{bundle.sceneCollection ? (
+							<Card>
+								<VStack gap={3}>
+									<Heading level={3}>Download the scene file</Heading>
+									<NumberedSteps
+										steps={[
+											"Download the file below.",
+											"In OBS, open Scene Collection → Import and pick the downloaded file.",
+											"Your device shows up as a ready-made scene.",
+										]}
+									/>
+									<HStack>
+										<Button
+											icon={
+												<Icon color="inherit" icon={DownloadIcon} size="sm" />
+											}
+											label="Download OBS scene file"
+											onClick={() =>
+												downloadSceneCollection(bundle.sceneCollection)
+											}
+										/>
+									</HStack>
+								</VStack>
+							</Card>
+						) : null}
+					</Grid>
+				</Collapsible>
+			</VStack>
+
+			<HStack gap={2} wrap="wrap">
+				<Button
+					label="Check for a live connection"
+					variant="primary"
+					onClick={onContinue}
+				/>
+			</HStack>
+		</VStack>
 	);
 }

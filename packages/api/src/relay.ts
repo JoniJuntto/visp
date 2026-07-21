@@ -388,6 +388,8 @@ async function ownedPath(userId: string, pathId: number) {
 			publishOrigin: relayPath.publishOrigin,
 			publishSecretEncrypted: relayPath.publishSecretEncrypted,
 			handle: appUser.handle,
+			readSecretHash: appUser.readSecretHash,
+			readSecretEncrypted: appUser.readSecretEncrypted,
 		})
 		.from(relayPath)
 		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
@@ -604,20 +606,20 @@ export async function claimNativePublishDevice(input: {
 	});
 }
 
-export function buildSceneCollection(input: {
+export function buildObsMediaSource(input: {
 	handle: string;
 	latencyMicros: number;
-	paths: Array<{ label: string; slug: string }>;
+	path: { id: number; label: string; slug: string };
 	readSecret: string;
 }) {
-	const mediaSource = (path: { label: string; slug: string }) => ({
-		name: `${path.label} feed`,
+	return {
+		name: `${input.path.label} feed`,
 		id: "ffmpeg_source",
 		settings: {
 			is_local_file: false,
 			input: buildSrtUrl(
 				"read",
-				path.slug,
+				input.path.slug,
 				input.handle,
 				input.readSecret,
 				input.latencyMicros,
@@ -628,9 +630,17 @@ export function buildSceneCollection(input: {
 			clear_on_media_end: true,
 			hw_decode: true,
 			buffering_mb: 1,
+			visp_path_id: String(input.path.id),
 		},
-	});
+	};
+}
 
+export function buildSceneCollection(input: {
+	handle: string;
+	latencyMicros: number;
+	paths: Array<{ id: number; label: string; slug: string }>;
+	readSecret: string;
+}) {
 	return {
 		name: `${input.handle} relay`,
 		current_scene: "Fallback",
@@ -646,8 +656,45 @@ export function buildSceneCollection(input: {
 				id: "scene",
 				settings: { items: [{ name: `${path.label} feed`, visible: true }] },
 			})),
-			...input.paths.map(mediaSource),
+			...input.paths.map((path) =>
+				buildObsMediaSource({
+					handle: input.handle,
+					latencyMicros: input.latencyMicros,
+					path,
+					readSecret: input.readSecret,
+				}),
+			),
 		],
+	};
+}
+
+export async function getObsMediaSource(userId: string, pathId: number) {
+	const path = await ownedPath(userId, pathId);
+	if (!path) return null;
+
+	let readSecret: string;
+	if (path.readSecretEncrypted) {
+		try {
+			readSecret = decryptReadSecret(path.readSecretEncrypted, userId);
+		} catch {
+			return { status: "unavailable" as const };
+		}
+	} else if (path.readSecretHash) {
+		return { status: "unavailable" as const };
+	} else {
+		const bundle = await rotateReadSecret(userId);
+		readSecret = bundle.revealed.read;
+	}
+
+	return {
+		status: "ready" as const,
+		pathId: path.id,
+		source: buildObsMediaSource({
+			handle: path.handle,
+			latencyMicros: 300_000,
+			path,
+			readSecret,
+		}),
 	};
 }
 
@@ -714,36 +761,78 @@ export async function revealReadUrls(userId: string) {
 	return buildReadBundle(userId, owner.handle, readSecret);
 }
 
+export type SetupUseCase =
+	| "phone_to_obs"
+	| "remote_guest"
+	| "multi_cam"
+	| "other";
+export type StreamDestination = "twitch" | "kick" | "other";
+export type StreamingSoftware = "obs" | "visp" | "larix" | "moblin" | "other";
+export type OnboardingRedoMode = "additive" | "wipe";
+
+export async function setAdvancedMode(userId: string, advancedMode: boolean) {
+	await db.update(appUser).set({ advancedMode }).where(eq(appUser.id, userId));
+	return { advancedMode };
+}
+
 export async function completeOnboarding(
 	userId: string,
 	input: {
-		deviceCount: number;
-		software: "obs" | "larix" | "moblin" | "other";
+		software: StreamingSoftware;
+		useCase: SetupUseCase;
+		destination: StreamDestination;
+		advancedMode: boolean;
+		redoMode?: OnboardingRedoMode;
 	},
 ) {
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.id, userId),
+	});
+	if (!owner) throw new Error("Relay user not found");
+
+	if (owner.onboardedAt && !input.redoMode) {
+		throw new Error("Choose wipe or keep existing devices to redo setup");
+	}
+
+	if (input.redoMode === "wipe") {
+		const active = await listPaths(userId);
+		for (const path of active) {
+			await revokePath(userId, path.id);
+		}
+		await createPath(userId, "main");
+	}
+
 	let paths = await listPaths(userId);
-	for (let seq = paths.length + 1; seq <= input.deviceCount; seq += 1) {
-		await createPath(userId, `device ${seq}`);
+	if (paths.length === 0) {
+		await createPath(userId, "main");
+		paths = await listPaths(userId);
 	}
-	paths = await listPaths(userId);
-	const publish = [];
-	for (const path of paths.slice(0, input.deviceCount)) {
-		const device = path.publishRevealable
-			? await revealPublishPath(userId, path.id)
-			: await rotatePublishPath(userId, path.id);
-		if (!device) throw new Error("Failed to configure publishing device");
-		publish.push(device.urls);
-	}
+
+	const primary = paths[0];
+	if (!primary) throw new Error("Failed to configure publishing device");
+
+	const device =
+		input.redoMode === "wipe" || !primary.publishRevealable
+			? await rotatePublishPath(userId, primary.id)
+			: await revealPublishPath(userId, primary.id);
+	if (!device) throw new Error("Failed to configure publishing device");
+
 	await db
 		.update(appUser)
 		.set({
-			deviceCount: input.deviceCount,
+			deviceCount: 1,
 			streamingSoftware: input.software,
+			setupUseCase: input.useCase,
+			streamDestination: input.destination,
+			advancedMode: input.advancedMode,
 			onboardedAt: new Date(),
 		})
 		.where(eq(appUser.id, userId));
 	const read = await rotateReadSecret(userId);
-	return { ...read, urls: { ...read.urls, publish } };
+	return {
+		...read,
+		urls: { ...read.urls, publish: [device.urls] },
+	};
 }
 
 export function recommendLatency(rttMs: number, profile: NetworkProfile) {

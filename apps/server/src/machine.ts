@@ -1,12 +1,25 @@
-import { pollObsControl } from "@VISP/api/obs-control";
+import {
+	authenticateObsControlToken,
+	pollObsControl,
+	revokeObsControlToken,
+	rotateObsControlToken,
+} from "@VISP/api/obs-control";
 import {
 	applyPathHook,
 	authenticateMedia,
+	createPublishDevice,
+	ensureRelayUser,
+	getObsMediaSource,
+	listPaths,
 	reconcilePathState,
 } from "@VISP/api/relay";
 import { getSnapshotUploadUrl } from "@VISP/api/snapshots";
+import { auth } from "@VISP/auth";
+import { db } from "@VISP/db";
+import { session as authSession } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { timingSafeEqual } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 
 function matchesHookSecret(value: string | undefined) {
@@ -21,6 +34,112 @@ function matchesHookSecret(value: string | undefined) {
 }
 
 export const machineRoutes = new Elysia({ name: "machine-routes" })
+	.post("/api/obs/connect", async ({ headers, request }) => {
+		if (!headers.authorization?.startsWith("Bearer ")) {
+			return status(401, "unauthorized");
+		}
+		try {
+			const activeSession = await auth.api.getSession({
+				headers: request.headers,
+			});
+			if (!activeSession) return status(401, "unauthorized");
+			const relayUser = await ensureRelayUser(
+				activeSession.user.id,
+				activeSession.user.name,
+			);
+			await db
+				.delete(authSession)
+				.where(eq(authSession.id, activeSession.session.id));
+			const pairing = await rotateObsControlToken(relayUser.id);
+			return {
+				account: { handle: relayUser.handle, name: activeSession.user.name },
+				controlUrl: new URL("/api/obs/control", request.url).toString(),
+				token: pairing.token,
+			};
+		} catch (error) {
+			if (
+				error instanceof Error &&
+				error.message === "Streaming account required"
+			) {
+				return status(403, "streaming account required");
+			}
+			return status(503, "connection unavailable");
+		}
+	})
+	.get("/api/obs/devices", async ({ headers }) => {
+		try {
+			const owner = await authenticateObsControlToken(headers.authorization);
+			if (!owner) return status(401, "unauthorized");
+			const paths = await listPaths(owner.id);
+			return {
+				account: { handle: owner.handle },
+				devices: paths.map((path) => {
+					const stale =
+						!path.lastEventAt ||
+						Date.now() - path.lastEventAt.getTime() > 60_000;
+					return {
+						id: path.id,
+						label: path.label,
+						publishing: Boolean(path.publishing) && !stale,
+					};
+				}),
+			};
+		} catch {
+			return status(503, "devices unavailable");
+		}
+	})
+	.post(
+		"/api/obs/devices",
+		async ({ body, headers }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				return await createPublishDevice(owner.id, body.label);
+			} catch {
+				return status(503, "device creation unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				label: t.String({ minLength: 1, maxLength: 64 }),
+			}),
+		},
+	)
+	.post(
+		"/api/obs/devices/:pathId/source",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				const source = await getObsMediaSource(owner.id, Number(params.pathId));
+				if (!source) return status(404, "publishing device not found");
+				if (source.status === "unavailable") {
+					return status(
+						409,
+						"Rotate OBS read credentials once in the VISP dashboard",
+					);
+				}
+				return source;
+			} catch {
+				return status(503, "media source unavailable");
+			}
+		},
+		{
+			params: t.Object({
+				pathId: t.String({ pattern: "^[1-9][0-9]*$" }),
+			}),
+		},
+	)
+	.post("/api/obs/disconnect", async ({ headers }) => {
+		try {
+			const owner = await authenticateObsControlToken(headers.authorization);
+			if (!owner) return status(401, "unauthorized");
+			await revokeObsControlToken(owner.id);
+			return status(204);
+		} catch {
+			return status(503, "disconnect unavailable");
+		}
+	})
 	.post(
 		"/api/obs/control",
 		async ({ body, headers }) => {

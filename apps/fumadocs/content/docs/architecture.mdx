@@ -15,7 +15,7 @@ transcoding it; the app decides who may connect and tracks what is live.
 | App host | PostgreSQL, Elysia/tRPC API, TanStack Start portal | Twitch and Kick login, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
-| OBS plugin | Broadcaster's OBS Studio 31 | Outbound-only polling for start/stop and scene commands |
+| OBS plugin | Broadcaster's OBS Studio 31 | Device management, Media Source setup, and outbound-only remote control |
 
 The hosts talk over Tailscale for administration and the MediaMTX Control API.
 Media uses the relay's public SRT (UDP 8890), RTMP (TCP 1935), and WebRTC
@@ -74,6 +74,12 @@ disappear from storage without any cleanup job. The portal's OBS
 remote-control card shows the tiles for live paths only.
 
 ## OBS remote control
+
+New plugin connections use Better Auth's device-authorization flow. The user
+approves OBS in the portal, OBS exchanges the temporary session for a scoped
+machine token, and the server immediately revokes that temporary session. The
+same machine token authenticates device listing, creation, Media Source setup,
+and the control poll; it does not grant general account API access.
 
 The plugin makes one outbound HTTPS `POST /api/obs/control` every two seconds
 and opens no inbound port. Each poll authenticates with a bearer token of the

@@ -14,6 +14,14 @@ const snapshots = new Bun.S3Client({
 	secretAccessKey: env.S3_SECRET_ACCESS_KEY,
 });
 
+const snapshotUploads = new Bun.S3Client({
+	accessKeyId: env.S3_ACCESS_KEY_ID,
+	bucket: env.S3_BUCKET,
+	endpoint: env.S3_UPLOAD_ENDPOINT ?? env.S3_ENDPOINT,
+	region: env.S3_REGION,
+	secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+});
+
 type SnapshotReader = Pick<Bun.S3Client, "presign" | "stat">;
 
 export function snapshotKey(pathId: number) {
@@ -22,7 +30,7 @@ export function snapshotKey(pathId: number) {
 
 export async function getSnapshotUploadUrl(
 	path: string,
-	client: Pick<Bun.S3Client, "presign"> = snapshots,
+	client: Pick<Bun.S3Client, "presign"> = snapshotUploads,
 ) {
 	const [livePath] = await db
 		.select({ id: relayPath.id })

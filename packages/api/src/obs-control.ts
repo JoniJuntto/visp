@@ -71,6 +71,43 @@ export async function rotateObsControlToken(userId: string) {
 	return { token: `${id}.${secret}`, status: controlStatus(owner) };
 }
 
+export async function authenticateObsControlToken(
+	authorization: string | undefined,
+) {
+	const token = parseObsControlToken(authorization);
+	if (!token) return null;
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.obsControlTokenId, token.id),
+	});
+	if (!owner?.obsControlTokenHash) return null;
+	const providedHash = Buffer.from(hashToken(token.secret), "hex");
+	const storedHash = Buffer.from(owner.obsControlTokenHash, "hex");
+	return storedHash.length === providedHash.length &&
+		timingSafeEqual(providedHash, storedHash)
+		? owner
+		: null;
+}
+
+export async function revokeObsControlToken(userId: string) {
+	const [owner] = await db
+		.update(appUser)
+		.set({
+			obsControlTokenId: null,
+			obsControlTokenHash: null,
+			obsDesiredStreaming: false,
+			obsStreaming: false,
+			obsScenes: [],
+			obsCurrentScene: null,
+			obsDesiredScene: null,
+			obsCommandVersion: 0,
+			obsAppliedVersion: 0,
+			obsLastSeenAt: null,
+		})
+		.where(eq(appUser.id, userId))
+		.returning();
+	return Boolean(owner);
+}
+
 export async function setObsStreaming(userId: string, streaming: boolean) {
 	const [owner] = await db
 		.update(appUser)
@@ -110,20 +147,8 @@ export async function pollObsControl(
 		currentScene: string | null;
 	},
 ) {
-	const token = parseObsControlToken(authorization);
-	if (!token) return null;
-	const owner = await db.query.appUser.findFirst({
-		where: eq(appUser.obsControlTokenId, token.id),
-	});
-	if (!owner?.obsControlTokenHash) return null;
-	const providedHash = Buffer.from(hashToken(token.secret), "hex");
-	const storedHash = Buffer.from(owner.obsControlTokenHash, "hex");
-	if (
-		storedHash.length !== providedHash.length ||
-		!timingSafeEqual(providedHash, storedHash)
-	) {
-		return null;
-	}
+	const owner = await authenticateObsControlToken(authorization);
+	if (!owner) return null;
 
 	// ponytail: one heartbeat write per poll is fine for v1; use leases or long-polling when connection count becomes material.
 	const appliedVersion = Math.min(

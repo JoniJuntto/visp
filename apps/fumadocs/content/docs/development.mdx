@@ -7,8 +7,8 @@ icon: Code
 ## Prerequisites
 
 - Bun 1.3.14 or newer
-- PostgreSQL 17 or newer
-- Docker with Compose for integration tests
+- Node.js 24 or newer
+- Docker with Compose
 - A Twitch application for Twitch login
 - A Kick application when testing Kick login, chat, or metadata
 - Xcode or Android Studio when working on the native app
@@ -21,48 +21,37 @@ bun install
 
 ## Configure the environment
 
-Copy the tracked examples:
+The local launcher creates and validates the server and web env files. Copy only
+the native example manually because its address depends on your device:
 
 ```bash
-cp apps/server/.env.example apps/server/.env
-cp apps/web/.env.example apps/web/.env
 cp apps/native/.env.example apps/native/.env.local
 ```
 
-Fill every blank value in `apps/server/.env`; server validation runs at startup.
-Generate the required 32-byte encryption key with:
-
-```bash
-openssl rand -base64 32
-```
+The launcher generates missing local secrets and reports blank Twitch or Kick
+credentials. Those provider flows require real credentials; unrelated local
+features still start.
 
 Register the callbacks for the providers you exercise locally:
 
 ```text
-Twitch: http://127.0.0.1:3000/api/auth/callback/twitch
-Kick:   http://127.0.0.1:3000/api/auth/oauth2/callback/kick
+Twitch: https://api.visp.localhost/api/auth/callback/twitch
+Kick:   https://api.visp.localhost/api/auth/oauth2/callback/kick
 ```
 
-The example relay and S3 values let the API start, but their dependent features
-need real services. Never commit `.env` files.
+Relay and S3 values point to the local Compose services. Never commit `.env`
+files.
 
-## Start PostgreSQL
+## Start the local stack
 
-Use an existing PostgreSQL server or start a local container matching the
-example environment:
+One command starts PostgreSQL 18, MinIO, MediaMTX, the relay gateway, API, and
+portal, then applies migrations:
 
 ```bash
-docker run --name visp-postgres \
-  --env POSTGRES_USER=visp \
-  --env POSTGRES_PASSWORD=visp \
-  --env POSTGRES_DB=visp \
-  --publish 5432:5432 \
-  --detach postgres:17-alpine
-
-bun run db:migrate
+bun run dev:local
 ```
 
-Restart that container later with `docker start visp-postgres`.
+Run `bun run dev:local:down` to stop the containers without deleting data.
 
 When changing `packages/db/src/schema`, generate and inspect a migration before
 applying it:
@@ -77,12 +66,15 @@ Studio with `bun run db:studio`.
 
 ## Run the project
 
-For normal API and portal work, use two terminals:
+For normal API and portal work:
 
 | Process | Command | Address |
 | --- | --- | --- |
-| API | `bun run dev:server` | `http://127.0.0.1:3000` |
-| Portal | `bun run dev:web` | `http://127.0.0.1:3001` |
+| Complete local stack | `bun run dev:local` | `https://visp.localhost` |
+| API | Managed by the launcher | `https://api.visp.localhost` |
+| Relay | Managed by the launcher | `https://relay.visp.localhost` |
+| MinIO console | Managed by the launcher | `https://minio.visp.localhost` |
+| PostgreSQL | Managed by the launcher | `127.0.0.1:54320` |
 | Documentation | `bun run --cwd apps/fumadocs dev` | `http://localhost:4000` |
 | Expo dev server | `bun run --cwd apps/native dev` | Shown by Expo |
 
@@ -149,8 +141,8 @@ credential-shaped field.
   exactly match the portal origin.
 - **A phone cannot connect:** use a LAN or tunnel address instead of localhost
   and allow the API port through the host firewall.
-- **Relay or snapshot actions fail:** replace the example relay or S3 values
-  with running services.
+- **Relay or snapshot actions fail:** check `docker compose ps` and the MediaMTX
+  and gateway logs.
 - **Integration tests cannot bind port 55432:** stop the process using that port
   and rerun the suite.
 

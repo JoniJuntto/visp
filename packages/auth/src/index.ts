@@ -5,7 +5,7 @@ import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import { genericOAuth } from "better-auth/plugins";
+import { bearer, deviceAuthorization, genericOAuth } from "better-auth/plugins";
 
 type KickUser = {
 	email: string;
@@ -82,6 +82,11 @@ export function createAuth() {
 			},
 		},
 		plugins: [
+			bearer(),
+			deviceAuthorization({
+				verificationUri: `${env.CORS_ORIGIN}/device`,
+				validateClient: (clientId) => clientId === "visp-obs",
+			}),
 			expo(),
 			genericOAuth({
 				config: [

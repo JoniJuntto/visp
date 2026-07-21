@@ -13,14 +13,18 @@ import {
 import { evlog } from "evlog/elysia";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
+import { seppoRoutes } from "./seppo";
 
 initLogger({ env: { service: "VISP-server" } });
 
 export const LOG_REDACTION_PATHS = [
 	"**.password",
 	"**.accessToken",
+	"**.access_token",
 	"**.refreshToken",
 	"**.ticket",
+	"**.token",
+	"**.device_code",
 	"**.authorization",
 	"**.x-hook-secret",
 ];
@@ -58,6 +62,7 @@ export function createApp() {
 		)
 		.use(chatRoutes)
 		.use(machineRoutes)
+		.use(seppoRoutes)
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {
 				return auth.handler(request);

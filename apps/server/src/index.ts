@@ -1,9 +1,10 @@
 import { reconcileKickSubscriptions } from "@VISP/api/chat/kick";
+import { env } from "@VISP/env/server";
 import { app } from "./app";
 import { startReconciler } from "./machine";
 
-app.listen({ hostname: "127.0.0.1", port: 3000 }, () => {
-	console.log("Server is running on http://127.0.0.1:3000");
+app.listen({ hostname: env.SERVER_HOST, port: env.PORT }, () => {
+	console.log(`Server is running on http://${env.SERVER_HOST}:${env.PORT}`);
 });
 startReconciler();
 void reconcileKickSubscriptions().catch((error) => {

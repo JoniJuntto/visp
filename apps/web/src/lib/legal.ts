@@ -11,6 +11,9 @@ export const legalEntity = {
 	releasesUrl: "https://github.com/PohinaGroup/visp/releases",
 	docsUrl: "https://docs.visp-stream.com",
 	browserAppUrl: "https://stream.visp-stream.com",
+	iosTestFlightUrl: "https://testflight.apple.com/join/Fc3VttNn",
+	androidPlayTestingUrl:
+		"https://play.google.com/apps/testing/com.pohinagroup.visp",
 	supervisoryAuthority: {
 		name: "Office of the Data Protection Ombudsman",
 		url: "https://tietosuoja.fi/en",

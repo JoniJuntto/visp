@@ -30,6 +30,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "turbo run dev",
+		"dev:local": "bun scripts/dev.ts",
+		"dev:local:down": "docker compose down",
 		"build": "turbo run build",
 		"test": "bun test",
 		"test:integration": "sh scripts/test-integration.sh",
@@ -46,6 +48,9 @@
 	},
 	"dependencies": {
 		"@VISP/env": "workspace:*",
+		"@astryxdesign/cli": "^0.1.6",
+		"@astryxdesign/core": "^0.1.6",
+		"@astryxdesign/theme-neutral": "^0.1.6",
 		"dotenv": "catalog:",
 		"zod": "catalog:"
 	},
@@ -53,6 +58,7 @@
 		"@VISP/config": "workspace:*",
 		"@biomejs/biome": "^2.5.2",
 		"@types/bun": "catalog:",
+		"portless": "^0.15.4",
 		"turbo": "^2.10.2",
 		"typescript": "catalog:"
 	},

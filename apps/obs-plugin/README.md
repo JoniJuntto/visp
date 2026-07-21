@@ -1,21 +1,27 @@
 # VISP Remote Control for OBS
 
-This OBS Studio 31 plugin lets an authenticated VISP web or native app start
-and stop the stream. It makes one outbound HTTPS request every two seconds; OBS
-does not expose a public control port.
+This OBS Studio 31 plugin signs in to VISP, lists publishing devices, adds their
+feeds as Media Sources, configures this OBS installation as a new publishing
+device, and accepts remote start/stop and scene commands. It uses outbound HTTPS
+only; OBS does not expose a public control port.
 
 ## Pair OBS
 
-1. In the VISP web dashboard, open **Plugin pairing** and generate a token.
-2. In OBS, open **Tools → VISP Remote Control**.
-3. Paste the token and click **Save**, or download `config.ini` from the
-   dashboard and click **Import config.ini**.
+1. In OBS, open **Tools → VISP Remote Control**.
+2. Click **Sign in with browser**, sign in to VISP, and approve the displayed
+   code.
+3. Back in OBS, add any existing device to the selected scene, or create an
+   `OBS` publishing device to replace the current profile's stream destination.
+
+Dashboard-generated tokens and imported `config.ini` files remain supported
+for self-hosted and older installations.
 
 The dashboard should show **Connected** within a few seconds; OBS does not need
 to restart.
 
-Rotating the token disconnects every older plugin configuration. The random
-256-bit token is shown once and stored by VISP only as a SHA-256 hash.
+Connecting or rotating the token disconnects every older plugin configuration.
+The browser session is discarded after pairing; OBS stores only the limited
+random machine credential, and VISP stores only its SHA-256 hash.
 
 ## Release prebuilt downloads
 

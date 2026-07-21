@@ -39,7 +39,7 @@ describe("relay guidance", () => {
 		const collection = buildSceneCollection({
 			handle: "streamer",
 			latencyMicros: 300_000,
-			paths: [{ label: "main", slug: "streamer-1" }],
+			paths: [{ id: 1, label: "main", slug: "streamer-1" }],
 			readSecret: "read-secret",
 		});
 		const source = collection.sources.find(
@@ -57,5 +57,6 @@ describe("relay guidance", () => {
 		});
 		expect(source.settings.input).toContain("streamid=read:streamer-1");
 		expect(source.settings.input).toContain("latency=300000");
+		expect(source.settings.visp_path_id).toBe("1");
 	});
 });

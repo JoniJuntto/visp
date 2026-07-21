@@ -1,18 +1,22 @@
-import { Button } from "@VISP/ui/components/button";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
+import { Icon } from "@astryxdesign/core/Icon";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
 import { CopyIcon } from "lucide-react";
-import type { ComponentProps } from "react";
 import { toast } from "sonner";
 
 export function CopyButton({
 	value,
+	label = "Copy",
+	variant = "secondary",
 	size = "sm",
-	variant = "outline",
-	children,
 }: {
 	value: string;
-	size?: ComponentProps<typeof Button>["size"];
-	variant?: ComponentProps<typeof Button>["variant"];
-	children?: React.ReactNode;
+	label?: string;
+	variant?: "primary" | "secondary" | "ghost";
+	size?: "sm" | "md";
 }) {
 	const copy = async () => {
 		try {
@@ -24,10 +28,13 @@ export function CopyButton({
 	};
 
 	return (
-		<Button size={size} variant={variant} onClick={copy}>
-			<CopyIcon data-icon="inline-start" />
-			{children ?? "Copy"}
-		</Button>
+		<Button
+			icon={<Icon color="inherit" icon={CopyIcon} size="sm" />}
+			label={label}
+			size={size}
+			variant={variant}
+			onClick={copy}
+		/>
 	);
 }
 
@@ -39,15 +46,19 @@ export function RevealedValue({
 	value: string;
 }) {
 	return (
-		<div
-			className="rr-block flex flex-col gap-2 border p-3"
-			data-rybbit-block
-		>
-			<div className="flex items-center justify-between gap-3">
-				<strong>{label}</strong>
-				<CopyButton value={value} />
-			</div>
-			<code className="break-all text-muted-foreground">{value}</code>
+		// rr-block keeps secrets out of session replay
+		<div className="rr-block" data-rybbit-block>
+			<Card padding={3} variant="muted">
+				<VStack gap={2}>
+					<HStack gap={3} hAlign="between" vAlign="center">
+						<Text type="label">{label}</Text>
+						<CopyButton value={value} />
+					</HStack>
+					<Text type="code" wordBreak="break-all">
+						{value}
+					</Text>
+				</VStack>
+			</Card>
 		</div>
 	);
 }
@@ -62,17 +73,19 @@ export function UrlWithFallback({
 	rtmp: string;
 }) {
 	return (
-		<div className="flex flex-col gap-2">
+		<VStack gap={2}>
 			<RevealedValue label={label} value={srt} />
-			<details>
-				<summary className="cursor-pointer list-none text-muted-foreground text-sm hover:text-foreground [&::-webkit-details-marker]:hidden">
-					App doesn't accept SRT? Show the RTMP URL
-				</summary>
-				<div className="pt-2">
-					<RevealedValue label="RTMP fallback" value={rtmp} />
-				</div>
-			</details>
-		</div>
+			<Collapsible
+				defaultIsOpen={false}
+				trigger={
+					<Text color="secondary" type="supporting">
+						App doesn't accept SRT? Show the RTMP URL
+					</Text>
+				}
+			>
+				<RevealedValue label="RTMP fallback" value={rtmp} />
+			</Collapsible>
+		</VStack>
 	);
 }
 

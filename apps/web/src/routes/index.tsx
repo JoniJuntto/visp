@@ -1,8 +1,28 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { AppShell } from "@astryxdesign/core/AppShell";
+import { AspectRatio } from "@astryxdesign/core/AspectRatio";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Center } from "@astryxdesign/core/Center";
+import { Divider } from "@astryxdesign/core/Divider";
+import { Grid } from "@astryxdesign/core/Grid";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Link as AstryxLink } from "@astryxdesign/core/Link";
+import { Section } from "@astryxdesign/core/Section";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { TopNav } from "@astryxdesign/core/TopNav";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+	type ComponentProps,
+	type CSSProperties,
+	forwardRef,
+	useEffect,
+	useState,
+} from "react";
 
+import { SeppoWidget } from "@/components/seppo-widget";
 import { authClient } from "@/lib/auth-client";
 import { legalEntity } from "@/lib/legal";
+import { scheduleLandingSeppoAutoOpen } from "@/lib/seppo-landing";
 
 export const Route = createFileRoute("/")({
 	head: () => ({
@@ -10,6 +30,13 @@ export const Route = createFileRoute("/")({
 	}),
 	component: HomeComponent,
 });
+
+// Adapter so astryx Link renders through the router for SPA navigation.
+const RouterAnchor = forwardRef<HTMLAnchorElement, ComponentProps<"a">>(
+	function RouterAnchor({ href = "", ...props }, ref) {
+		return <Link ref={ref} to={href} {...props} />;
+	},
+);
 
 const WORDS = [
 	"the street.",
@@ -19,6 +46,10 @@ const WORDS = [
 	"anywhere.",
 ] as const;
 const GLYPHS = "#@$%&*+=<>/\\|~";
+
+// Inline color only: the scrambled word inherits the display heading's
+// size/weight, which no Text type reproduces.
+const accentInline: CSSProperties = { color: "var(--color-text-accent)" };
 
 function ScrambleWord() {
 	const [word, setWord] = useState<string>(WORDS[WORDS.length - 1]);
@@ -53,7 +84,7 @@ function ScrambleWord() {
 		};
 	}, []);
 
-	return <span className="font-medium font-mono text-[#8a6bff]">{word}</span>;
+	return <span style={accentInline}>{word}</span>;
 }
 
 const productShots = [
@@ -71,33 +102,32 @@ const productShots = [
 	},
 ] as const;
 
+// Image fill + corner radius: AspectRatio has no objectFit/radius props.
+const shotImage: CSSProperties = {
+	width: "100%",
+	height: "100%",
+	objectFit: "cover",
+};
+const shotClip: CSSProperties = {
+	borderRadius: "var(--radius-container)",
+	overflow: "hidden",
+};
+
 function ProductShots() {
 	return (
-		<div className="grid h-full min-h-[220px] grid-cols-[1.4fr_1fr] gap-2 sm:min-h-[260px]">
-			<img
-				src={productShots[0].src}
-				alt={productShots[0].alt}
-				className="h-full w-full object-cover object-center"
-				loading="lazy"
-				decoding="async"
-			/>
-			<div className="grid grid-rows-2 gap-2">
-				<img
-					src={productShots[1].src}
-					alt={productShots[1].alt}
-					className="h-full w-full object-cover object-center"
-					loading="lazy"
-					decoding="async"
-				/>
-				<img
-					src={productShots[2].src}
-					alt={productShots[2].alt}
-					className="h-full w-full object-cover object-top"
-					loading="lazy"
-					decoding="async"
-				/>
-			</div>
-		</div>
+		<Grid columns={{ minWidth: 160, repeat: "fit" }} gap={3}>
+			{productShots.map((shot) => (
+				<AspectRatio key={shot.src} ratio={9 / 16} style={shotClip}>
+					<img
+						alt={shot.alt}
+						decoding="async"
+						loading="lazy"
+						src={shot.src}
+						style={shotImage}
+					/>
+				</AspectRatio>
+			))}
+		</Grid>
 	);
 }
 
@@ -109,20 +139,22 @@ function SignalAnimation() {
 		"M 442 164 C 540 164, 560 234, 680 234",
 	];
 	const nodeYs = [70, 152, 234];
+	const accent = "var(--color-accent)";
+	const surface = "var(--color-background-surface)";
+	const secondary = "var(--color-text-secondary)";
 	return (
-		<div aria-hidden className="my-6 mb-[72px] px-6">
+		<Section padding={6}>
 			<svg
+				aria-hidden="true"
+				role="presentation"
 				viewBox="0 0 800 270"
-				className="mx-auto block w-full max-w-[900px]"
+				style={{
+					display: "block",
+					margin: "0 auto",
+					width: "100%",
+					maxWidth: 900,
+				}}
 			>
-				<defs>
-					<radialGradient id="heroGlow">
-						<stop offset="0%" stopColor="#8a6bff" stopOpacity="0.14" />
-						<stop offset="100%" stopColor="#8a6bff" stopOpacity="0" />
-					</radialGradient>
-				</defs>
-				<ellipse cx="400" cy="150" rx="340" ry="130" fill="url(#heroGlow)" />
-
 				{/* phone */}
 				<rect
 					x="62"
@@ -130,8 +162,8 @@ function SignalAnimation() {
 					width="44"
 					height="84"
 					rx="10"
-					fill="#14121f"
-					stroke="#8a6bff"
+					fill={surface}
+					stroke={accent}
 					strokeOpacity="0.7"
 					strokeWidth="2"
 				/>
@@ -141,7 +173,7 @@ function SignalAnimation() {
 					y1="160"
 					x2="92"
 					y2="160"
-					stroke="#8a6bff"
+					stroke={accent}
 					strokeOpacity="0.5"
 					strokeWidth="2"
 					strokeLinecap="round"
@@ -151,7 +183,7 @@ function SignalAnimation() {
 						key={r}
 						d={`M 104 ${86 - r} A ${r} ${r} 0 0 1 ${104 + r} 86`}
 						fill="none"
-						stroke="#8a6bff"
+						stroke={accent}
 						strokeWidth="2"
 						strokeLinecap="round"
 						className="radio-arc"
@@ -163,14 +195,14 @@ function SignalAnimation() {
 				<path
 					d={uplink}
 					fill="none"
-					stroke="#8a6bff"
+					stroke={accent}
 					strokeOpacity="0.15"
 					strokeWidth="2"
 				/>
 				<path
 					d={uplink}
 					fill="none"
-					stroke="#8a6bff"
+					stroke={accent}
 					strokeWidth="3"
 					strokeLinecap="round"
 					className="flow-line"
@@ -180,7 +212,7 @@ function SignalAnimation() {
 				<polyline
 					points="358,134 400,102 442,134"
 					fill="none"
-					stroke="#8a6bff"
+					stroke={accent}
 					strokeOpacity="0.7"
 					strokeWidth="2"
 					strokeLinejoin="round"
@@ -190,8 +222,8 @@ function SignalAnimation() {
 					y="134"
 					width="72"
 					height="52"
-					fill="#14121f"
-					stroke="#8a6bff"
+					fill={surface}
+					stroke={accent}
 					strokeOpacity="0.7"
 					strokeWidth="2"
 				/>
@@ -202,7 +234,7 @@ function SignalAnimation() {
 					height="18"
 					rx="2"
 					fill="none"
-					stroke="#8a6bff"
+					stroke={accent}
 					strokeOpacity="0.5"
 					strokeWidth="2"
 				/>
@@ -213,14 +245,14 @@ function SignalAnimation() {
 						<path
 							d={d}
 							fill="none"
-							stroke="#8a6bff"
+							stroke={accent}
 							strokeOpacity="0.15"
 							strokeWidth="2"
 						/>
 						<path
 							d={d}
 							fill="none"
-							stroke="#8a6bff"
+							stroke={accent}
 							strokeWidth="3"
 							strokeLinecap="round"
 							className="flow-line"
@@ -234,15 +266,15 @@ function SignalAnimation() {
 							cx="690"
 							cy={y}
 							r="6"
-							fill="#14121f"
-							stroke="#8a6bff"
+							fill={surface}
+							stroke={accent}
 							strokeWidth="2"
 						/>
 						<circle
 							cx="690"
 							cy={y}
 							r="2.5"
-							fill="#8a6bff"
+							fill={accent}
 							className="tally-pulse"
 							style={{ animationDelay: `${i * 0.5}s` }}
 						/>
@@ -250,23 +282,15 @@ function SignalAnimation() {
 				))}
 
 				{/* labels */}
-				<text
-					x="84"
-					y="198"
-					textAnchor="middle"
-					fill="#8b87a3"
-					fontSize="13"
-					className="font-mono max-sm:hidden"
-				>
+				<text x="84" y="198" textAnchor="middle" fill={secondary} fontSize="13">
 					phone
 				</text>
 				<text
 					x="400"
 					y="212"
 					textAnchor="middle"
-					fill="#8b87a3"
+					fill={secondary}
 					fontSize="13"
-					className="font-mono max-sm:hidden"
 				>
 					home studio
 				</text>
@@ -274,222 +298,259 @@ function SignalAnimation() {
 					x="690"
 					y="262"
 					textAnchor="middle"
-					fill="#8b87a3"
+					fill={secondary}
 					fontSize="13"
-					className="font-mono max-sm:hidden"
 				>
 					everywhere.
 				</text>
 			</svg>
-		</div>
+		</Section>
 	);
 }
 
-const ctaClass =
-	"font-bold text-white bg-[#8a6bff] shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_2px_6px_rgba(0,0,0,.4),0_8px_28px_rgba(138,107,255,.28)] transition-all duration-200 hover:bg-[#9d84ff] hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_10px_32px_rgba(138,107,255,.45)]";
-
-function TryCta({ className }: { className: string }) {
+function TryCta({ size = "md" }: { size?: "md" | "lg" }) {
 	const { data: session } = authClient.useSession();
+	const navigate = useNavigate();
 	return (
-		<Link to={session ? "/dashboard" : "/login"} className={className}>
-			try VISP free
-		</Link>
+		<Button
+			label="Try VISP free"
+			size={size}
+			variant="primary"
+			onClick={() => navigate({ to: session ? "/dashboard" : "/login" })}
+		/>
 	);
 }
 
 const bentoCards = [
 	{
-		span: "sm:col-span-4",
-		title: "the whole show, from a phone",
-		body: "the VISP app — or the camera app you already love — becomes a proper camera for your full production. not a smaller substitute for it.",
-		shots: true,
-	},
-	{
-		span: "sm:col-span-2",
 		title: "their studio, untouched",
 		body: "scenes, alerts, graphics, and years of muscle memory keep working. nothing to rebuild — VISP plugs into the OBS setup you already have. the OBS plugin is live in beta.",
 	},
 	{
-		span: "sm:col-span-2",
 		title: "two cameras, one stream",
 		body: "run multiple phone cameras — each with its own mic — feeding the same broadcast. a second phone becomes a real scene, not a video-call window.",
 	},
 	{
-		span: "sm:col-span-2",
 		title: "streams that survive",
 		body: "a short signal drop doesn't end the broadcast — the home studio keeps the show alive.",
 	},
 	{
-		span: "sm:col-span-2",
 		title: "keys that stay home",
 		body: "every camera gets its own private access you can revoke anytime. your broadcast key never enters VISP.",
 	},
 ];
 
+const footerLinks = [
+	{ label: "Docs", href: legalEntity.docsUrl, external: true },
+	{ label: "Download", href: "/download", external: false },
+	{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
+	{ label: "Privacy", href: "/privacy", external: false },
+	{ label: "Contact", href: "/contact", external: false },
+	{ label: "Terms", href: "/terms", external: false },
+	{ label: "Cookies", href: "/cookies", external: false },
+];
+
+const LANDING_SEPPO_SUGGESTIONS = [
+	"What is VISP for?",
+	"Can I use my phone with OBS?",
+	"What do I need to get started?",
+];
+
 function HomeComponent() {
+	const [seppoOpen, setSeppoOpen] = useState(false);
+
+	useEffect(
+		() =>
+			scheduleLandingSeppoAutoOpen(sessionStorage, () => setSeppoOpen(true)),
+		[],
+	);
+
 	return (
-		<main className="min-h-svh bg-[#0a0a12] font-grotesk text-[#eceaf4] antialiased selection:bg-[#8a6bff]/35">
-			<nav className="mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pt-[34px] pb-[26px]">
-				<img src="/visp-logo.png" alt="VISP" className="h-[42px] w-auto" />
-				<div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-					<a
-						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8]"
-						href={legalEntity.docsUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
-						Docs
-					</a>
-					<Link
-						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8]"
-						to="/download"
-					>
-						Download
-					</Link>
-					<a
-						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8] max-sm:hidden"
-						href={legalEntity.sourceUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
-						GitHub
-					</a>
-					<Link
-						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8] max-sm:hidden"
-						to="/contact"
-					>
-						Contact
-					</Link>
-					<TryCta className="rounded-xl border border-[#8a6bff]/45 px-5 py-2.5 font-semibold text-[#b6a8ff] text-[14px] transition-all duration-200 hover:border-[#8a6bff] hover:bg-[#8a6bff]/10 hover:text-white" />
-				</div>
-			</nav>
-
-			<header className="mx-auto flex max-w-[820px] flex-col items-center gap-[26px] px-8 pt-12 pb-10 text-center sm:pt-[72px]">
-				<h1 className="text-balance font-bold text-[44px] leading-[1.05] tracking-tight sm:text-[68px]">
-					go live from
-					<br />
-					<ScrambleWord />
-				</h1>
-				<p className="max-w-[48ch] text-pretty text-[19px] text-[#b6b2cc] leading-relaxed">
-					Run multiple phone cams with their own mics, pull a friend onto the
-					stream, and keep broadcasting when the signal dips.
-				</p>
-				<p className="max-w-[40ch] text-pretty font-semibold text-[19px] leading-relaxed">
-					Full production. Zero leash.
-				</p>
-				<div className="mt-1.5 flex flex-col items-center gap-3">
-					<TryCta
-						className={`rounded-[14px] px-10 py-4 text-[17px] ${ctaClass}`}
+		<>
+			<AppShell
+				contentPadding={4}
+				height="auto"
+				topNav={
+					<TopNav
+						heading={
+							<img alt="VISP" src="/visp-logo.png" style={{ height: 36 }} />
+						}
+						label="Main"
+						endContent={
+							<HStack gap={4} vAlign="center">
+								<AstryxLink
+									href={legalEntity.docsUrl}
+									isExternalLink
+									isStandalone
+								>
+									Docs
+								</AstryxLink>
+								<AstryxLink as={RouterAnchor} href="/download" isStandalone>
+									Download
+								</AstryxLink>
+								<AstryxLink
+									href={legalEntity.sourceUrl}
+									isExternalLink
+									isStandalone
+								>
+									GitHub
+								</AstryxLink>
+								<AstryxLink as={RouterAnchor} href="/contact" isStandalone>
+									Contact
+								</AstryxLink>
+								<TryCta />
+							</HStack>
+						}
 					/>
-					<span className="font-mono text-[#8b87a3] text-[12.5px]">
-						free while in beta · no credit card required
-					</span>
-				</div>
-			</header>
-
-			<SignalAnimation />
-
-			<section
-				id="how"
-				className="mx-auto flex max-w-[1080px] flex-col gap-9 px-8 pb-[88px]"
+				}
 			>
-				<h2 className="text-balance text-center font-bold text-[32px] tracking-tight sm:text-[38px]">
-					not for everyone. for creators who want…
-				</h2>
-				<div className="grid grid-cols-1 gap-3.5 sm:grid-cols-6">
-					{bentoCards.map((card) => (
-						<div
-							key={card.title}
-							className={`flex flex-col gap-3 bg-[#14121f] p-[30px] ${card.span}`}
-						>
-							<h3 className="font-semibold text-[22px]">{card.title}</h3>
-							<p className="text-pretty text-[#a7a3bd] text-[15.5px] leading-relaxed">
-								{card.body}
-							</p>
-							{"shots" in card && card.shots ? (
-								<div className="mt-1.5 w-full flex-1 overflow-hidden">
+				<VStack gap={10} paddingBlock={8}>
+					<Center axis="horizontal">
+						<VStack gap={6} hAlign="center" maxWidth={820}>
+							<VStack gap={3} hAlign="center">
+								<Heading
+									justify="center"
+									level={1}
+									textWrap="balance"
+									type="display-1"
+								>
+									go live from <ScrambleWord />
+								</Heading>
+								<Text
+									color="secondary"
+									justify="center"
+									textWrap="balance"
+									type="large"
+								>
+									Run multiple phone cams with their own mics, pull a friend
+									onto the stream, and keep broadcasting when the signal dips.
+								</Text>
+								<Text
+									justify="center"
+									textWrap="balance"
+									type="large"
+									weight="semibold"
+								>
+									Full production. Zero leash.
+								</Text>
+							</VStack>
+							<VStack gap={2} hAlign="center">
+								<TryCta size="lg" />
+								<Text color="secondary" type="supporting">
+									free while in beta · no credit card required
+								</Text>
+							</VStack>
+						</VStack>
+					</Center>
+
+					<SignalAnimation />
+
+					<Center axis="horizontal">
+						<VStack gap={6} maxWidth={1080} width="100%">
+							<Heading
+								justify="center"
+								level={2}
+								textWrap="balance"
+								type="display-3"
+							>
+								not for everyone. for creators who want…
+							</Heading>
+							<Card>
+								<VStack gap={3}>
+									<Heading level={3}>the whole show, from a phone</Heading>
+									<Text color="secondary" textWrap="pretty">
+										the VISP app — or the camera app you already love — becomes
+										a proper camera for your full production. not a smaller
+										substitute for it.
+									</Text>
 									<ProductShots />
-								</div>
-							) : null}
-						</div>
-					))}
-				</div>
-			</section>
+								</VStack>
+							</Card>
+							<Grid columns={{ minWidth: 260, repeat: "fit" }} gap={3}>
+								{bentoCards.map((card) => (
+									<Card key={card.title}>
+										<VStack gap={2}>
+											<Heading level={3}>{card.title}</Heading>
+											<Text color="secondary" textWrap="pretty">
+												{card.body}
+											</Text>
+										</VStack>
+									</Card>
+								))}
+							</Grid>
+						</VStack>
+					</Center>
 
-			<section id="try" className="border-[#8a6bff]/15 border-t">
-				<div className="mx-auto flex max-w-[760px] flex-col items-center gap-[18px] px-8 pt-[100px] pb-[110px] text-center">
-					<h2 className="text-balance font-bold text-[40px] leading-[1.08] tracking-tight sm:text-[52px]">
-						join the beta
-					</h2>
-					<div className="font-bold text-[#8a6bff] text-[40px] italic tracking-tight sm:text-[52px]">
-						it's free
-					</div>
-					<TryCta
-						className={`mt-3.5 rounded-[14px] px-[46px] py-[18px] text-lg ${ctaClass}`}
-					/>
-					<span className="font-mono text-[#8b87a3] text-[12.5px]">
-						no credit card required · setup takes three questions, not three
-						weekends
-					</span>
-					<p className="mt-2 max-w-[46ch] font-mono text-[#8b87a3] text-[12.5px] leading-relaxed">
-						Phone apps, browser publisher, and OBS plugin — see{" "}
-						<Link
-							className="text-[#b6a8ff] underline underline-offset-4 hover:text-white"
-							to="/download"
+					<Divider />
+
+					<VStack gap={4} hAlign="center" paddingBlock={8}>
+						<Heading justify="center" level={2} type="display-2">
+							join the beta
+						</Heading>
+						<Text justify="center" type="display-2" weight="bold">
+							<span style={accentInline}>it's free</span>
+						</Text>
+						<TryCta size="lg" />
+						<Text color="secondary" justify="center" type="supporting">
+							no credit card required · setup takes three questions, not three
+							weekends
+						</Text>
+						<Text
+							color="secondary"
+							justify="center"
+							textWrap="balance"
+							type="supporting"
 						>
-							Download & beta
-						</Link>
-						. You do not need to self-host to try the hosted beta.
-					</p>
-				</div>
-			</section>
+							Phone apps, browser publisher, and OBS plugin — see{" "}
+							<AstryxLink as={RouterAnchor} href="/download">
+								Download &amp; beta
+							</AstryxLink>
+							. You do not need to self-host to try the hosted beta.
+						</Text>
+					</VStack>
 
-			<footer className="flex flex-col items-center gap-3 border-[#8a6bff]/10 border-t px-8 py-[26px] font-mono text-[#7d7997] text-[12.5px]">
-				<div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
-					<a
-						className="hover:text-[#cfc9e8]"
-						href={legalEntity.docsUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
-						Docs
-					</a>
-					<span aria-hidden>·</span>
-					<Link className="hover:text-[#cfc9e8]" to="/download">
-						Download
-					</Link>
-					<span aria-hidden>·</span>
-					<a
-						className="hover:text-[#cfc9e8]"
-						href={legalEntity.sourceUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
-						GitHub
-					</a>
-					<span aria-hidden>·</span>
-					<Link className="hover:text-[#cfc9e8]" to="/privacy">
-						Privacy
-					</Link>
-					<span aria-hidden>·</span>
-					<Link className="hover:text-[#cfc9e8]" to="/contact">
-						Contact
-					</Link>
-					<span aria-hidden>·</span>
-					<Link className="hover:text-[#cfc9e8]" to="/terms">
-						Terms
-					</Link>
-					<span aria-hidden>·</span>
-					<Link className="hover:text-[#cfc9e8]" to="/cookies">
-						Cookies
-					</Link>
-				</div>
-				<div className="flex flex-wrap justify-center gap-2.5">
-					<span>© 2026 VISP · Pöhinä Group Oy</span>
-					<span aria-hidden>·</span>
-					<span>phone is the camera. home is the studio.</span>
-				</div>
-			</footer>
-		</main>
+					<Divider />
+
+					<VStack gap={3} hAlign="center">
+						<HStack gap={3} hAlign="center" wrap="wrap">
+							{footerLinks.map((item) =>
+								item.external ? (
+									<AstryxLink
+										href={item.href}
+										isExternalLink
+										isStandalone
+										key={item.label}
+									>
+										{item.label}
+									</AstryxLink>
+								) : (
+									<AstryxLink
+										as={RouterAnchor}
+										href={item.href}
+										isStandalone
+										key={item.label}
+									>
+										{item.label}
+									</AstryxLink>
+								),
+							)}
+						</HStack>
+						<Text color="secondary" justify="center" type="supporting">
+							© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the
+							studio.
+						</Text>
+					</VStack>
+				</VStack>
+			</AppShell>
+			<SeppoWidget
+				context="landing"
+				open={seppoOpen}
+				placeholder="Ask about VISP…"
+				subtitle="Product guide — ask what VISP can do"
+				suggestions={LANDING_SEPPO_SUGGESTIONS}
+				welcome="Hi, I'm Seppo. Curious whether VISP fits your stream? Ask me what it does, what you need, or how phones and remote guests reach OBS."
+				onOpenChange={setSeppoOpen}
+			/>
+		</>
 	);
 }

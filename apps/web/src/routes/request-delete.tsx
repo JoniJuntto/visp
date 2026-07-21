@@ -12,7 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { authClient } from "@/lib/auth-client";
+import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { legalEntity } from "@/lib/legal";
 
 export const Route = createFileRoute("/request-delete")({
@@ -47,11 +47,11 @@ function RequestDelete() {
 			provider === "twitch"
 				? await authClient.signIn.social({
 						provider,
-						callbackURL: "/request-delete",
+						callbackURL: authRedirectURL("/request-delete"),
 					})
 				: await authClient.signIn.oauth2({
 						providerId: provider,
-						callbackURL: "/request-delete",
+						callbackURL: authRedirectURL("/request-delete"),
 					});
 		if (result.error) {
 			toast.error(result.error.message ?? `${provider} sign-in failed`);
@@ -67,7 +67,7 @@ function RequestDelete() {
 
 		setPending(true);
 		const result = await authClient.deleteUser({
-			callbackURL: "/request-delete?deleted=1",
+			callbackURL: authRedirectURL("/request-delete?deleted=1"),
 		});
 		if (result.error) {
 			toast.error(result.error.message ?? "Account deletion failed");

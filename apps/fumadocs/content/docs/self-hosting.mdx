@@ -162,8 +162,9 @@ Do not put MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relay's direct public IP (`RELAY_PUBLIC_IP`), and the hook
 endpoints also require the shared secret. The Kick webhook is a separate public
 route protected by Kick's RSA signature, timestamp window, and replay
-detection. `/api/obs/control` must stay publicly reachable over HTTPS so the
-OBS plugin can poll from the broadcaster's computer.
+detection. `/api/obs/*` and `/api/auth/*` must stay publicly reachable over
+HTTPS so the OBS plugin can authenticate and operate from the broadcaster's
+computer.
 
 ## 4. Snapshot storage
 
@@ -192,7 +193,9 @@ only 60-second presigned PUT URLs; S3 access keys never leave the app host.
 
 ## 5. OBS plugin
 
-Deploy the API and Caddy rules, and apply migrations, before pairing OBS.
+Deploy the API and the `/api/obs/*` Caddy rule, and apply migrations, before
+pairing OBS. The device-authorization endpoints under `/api/auth/*` must also
+remain publicly reachable.
 Build the plugin on the OS that runs OBS, or download packages from a
 [GitHub Release](https://github.com/PohinaGroup/visp/releases).
 
@@ -210,21 +213,20 @@ cp -R build_macos/RelWithDebInfo/visp-obs.plugin \
 Windows uses the `windows-x64` preset; Linux uses `ubuntu-x86_64`. See
 [OBS remote control](/docs/obs-remote-control) for install paths and pairing.
 
-Then:
-
-1. Open **OBS remote control** in the portal and generate a token.
-2. Start OBS once so it logs the `config.ini` path.
-3. Close OBS and write:
+The normal path is **Tools → VISP Remote Control → Sign in with browser**. For
+manual recovery or older installations, start OBS once so it logs the
+`config.ini` path, close OBS, and write:
 
    ```ini
    [visp]
    control_url=https://APP_DOMAIN/api/obs/control
    token=the-token-shown-by-visp
    ```
-4. Restart OBS. The dashboard should show **Connected** within a few seconds.
+Restart OBS. The dashboard should show **Connected** within a few seconds.
 
-OBS must already have a working streaming service and stream key. The plugin
-only invokes start and stop. Treat `config.ini` as a machine credential.
+Treat `config.ini` as a machine credential. Creating an OBS publishing device
+from the plugin replaces the active profile's streaming service only after an
+explicit confirmation.
 
 ## 6. Rollout order
 

@@ -151,9 +151,9 @@ receives only 60-second presigned PUT URLs; S3 access keys remain on the app box
 ## 5. Install and pair the OBS plugin
 
 Deploy the updated `app/Caddyfile` and apply the database migrations before
-pairing OBS. `/api/obs/control` must be publicly reachable over HTTPS: the OBS
-plugin calls it from the broadcaster's computer and authenticates with its
-pairing token, not the relay IP allowlist.
+pairing OBS. `/api/obs/*` and `/api/auth/*` must be publicly reachable over
+HTTPS: the OBS plugin uses them for browser pairing, device setup, and control,
+authenticated by its machine token rather than the relay IP allowlist.
 
 Build the plugin on the operating system that runs OBS. For a local macOS test:
 
@@ -177,18 +177,24 @@ These are the layouts from the [OBS plugin guide](https://obsproject.com/kb/plug
 
 Then pair one OBS installation:
 
-1. Open **OBS remote control** in the VISP web dashboard and generate a token.
-2. Start OBS once. Its log reports the exact generated `config.ini` path.
-3. Close OBS and put the downloaded values in that file:
+1. In OBS, open **Tools → VISP Remote Control** and click **Sign in with
+   browser**.
+2. Sign in to VISP, approve the displayed code, then return to OBS. The plugin
+   can now list devices, add Media Sources, and create an OBS publishing
+   device.
 
-   ```ini
-   [visp]
-   control_url=https://APP_DOMAIN/api/obs/control
-   token=the-token-shown-by-visp
-   ```
+For legacy recovery, generate a token in the VISP dashboard. Start OBS once so
+its log reports the exact generated `config.ini` path, close OBS, and put the
+downloaded values in that file:
 
-4. Restart OBS. The dashboard should show **Connected** within a few seconds;
-   test both start and stop from web or native.
+```ini
+[visp]
+control_url=https://APP_DOMAIN/api/obs/control
+token=the-token-shown-by-visp
+```
+
+Restart OBS after a manual import. The dashboard should show **Connected**
+within a few seconds; test both start and stop from web or native.
 
 OBS must already have a working streaming service and stream key. The plugin
 only invokes OBS's existing start and stop actions. Treat `config.ini` as a
