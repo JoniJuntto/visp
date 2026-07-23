@@ -94,7 +94,7 @@ function CookiesPage() {
 			<section className="flex flex-col gap-3">
 				<h2>4. Analytics (cookieless)</h2>
 				<p>
-					When configured, VISP loads{" "}
+					When configured, VISP loads our self-hosted instance of{" "}
 					<a
 						href="https://rybbit.com"
 						rel="noopener noreferrer"

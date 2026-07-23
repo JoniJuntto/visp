@@ -123,9 +123,9 @@ function PrivacyPage() {
 				<p>
 					We use infrastructure and subprocessors necessary to run VISP (for
 					example hosting, database, object storage for snapshots, and OAuth
-					identity providers Twitch and Kick). When analytics is configured, we
-					also use Rybbit for cookieless product analytics. Data is shared with
-					them only as needed to provide the service. Stream destinations you
+					identity providers Twitch and Kick). When analytics is configured, it
+					runs on our own self-hosted Rybbit instance, so analytics data is not
+					shared with a third-party analytics provider. Stream destinations you
 					choose (OBS, platforms) receive the media you publish; VISP does not
 					take ownership of your stream keys.
 				</p>

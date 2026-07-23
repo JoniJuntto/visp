@@ -90,7 +90,7 @@ function CookiesPage() {
 			<section className="flex flex-col gap-3">
 				<h2>4. Evästeetön analytiikka</h2>
 				<p>
-					Kun se on määritetty käyttöön, VISP käyttää{" "}
+					Kun se on määritetty käyttöön, VISP käyttää itse ylläpitämäämme{" "}
 					<a
 						href="https://rybbit.com"
 						rel="noopener noreferrer"

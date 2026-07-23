@@ -121,9 +121,9 @@ function PrivacyPage() {
 					Käytämme VISPin toimintaan tarvittavia infrastruktuuripalveluja ja
 					alikäsittelijöitä, kuten hostingia, tietokantaa, tilannekuvien
 					objektitallennusta sekä Twitchiä ja Kickiä OAuth-tunnistukseen. Kun
-					analytiikka on käytössä, käytämme Rybbit-palvelua evästeettömään
-					tuoteanalytiikkaan. Tietoja jaetaan vain palvelun tarjoamisen
-					edellyttämässä laajuudessa. Valitsemasi suoratoistokohteet saavat
+					analytiikka on käytössä, se toimii omalla itse ylläpitämällämme
+					Rybbit-palvelimella, joten analytiikkatietoja ei jaeta ulkopuoliselle
+					analytiikkapalvelulle. Valitsemasi suoratoistokohteet saavat
 					julkaisemasi median; VISP ei ota lähetysavaimiasi haltuunsa.
 				</p>
 			</section>
