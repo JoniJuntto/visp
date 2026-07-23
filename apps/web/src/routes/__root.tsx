@@ -35,7 +35,7 @@ function rybbitHeadScripts() {
 
 	return [
 		{
-			src: "https://app.rybbit.io/api/script.js",
+			src: "https://analytics.huikaton.online/api/script.js",
 			async: true,
 			"data-site-id": siteId,
 			// Keep publish URLs and similar secrets out of session replay.

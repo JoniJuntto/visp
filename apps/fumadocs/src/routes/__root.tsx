@@ -33,6 +33,13 @@ export const Route = createRootRoute({
       },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
+    scripts: [
+      {
+        src: "https://analytics.huikaton.online/api/script.js",
+        async: true,
+        "data-site-id": "6491305c8213",
+      },
+    ],
   }),
   component: RootComponent,
 });
